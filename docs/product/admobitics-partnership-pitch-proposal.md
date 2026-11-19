@@ -1,29 +1,50 @@
 # Strategic Technology Partnership Proposal
 ## Powering Admobitics Auto-Rickshaw Advertising with HINOPT Technology
 
-**Prepared by:** HINOPT Technologies  
-**Prepared for:** Admobitics Leadership Team  
+![HINOPT Logo](../assets/hinopt-logo.png)
+
+**Document Reference:** HINOPT-PROP-2026-ADM01  
+**Prepared by:** HINOPT Technologies ([hinopt.com](https://hinopt.com))  
+**Prepared for:** Admobitics Leadership Team ([admobitics.vercel.app](https://admobitics.vercel.app))  
 **Proposal Date:** November 2026  
-**Location:** Hyderabad, Telangana  
-**Class:** Confidential — Strategic Partnership Agreement  
+**Operational Hubs:** Hyderabad & Visakhapatnam, India  
+**Classification:** Confidential — Strategic Partnership & Co-Growth Agreement  
 
 ---
 
 ## 1. Executive Summary
 
-**Admobitics** is building Hyderabad’s premier in-auto digital advertising network across major transit and commercial corridors (HITEC City, Madhapur, Gachibowli, Jubilee Hills, and Secunderabad).
+**Admobitics** is pioneering Hyderabad’s premier in-auto digital advertising network across major commercial, IT, and residential corridors (HITEC City, Madhapur, Gachibowli, Jubilee Hills, and Secunderabad).
 
-To ensure Admobitics operates on a reliable, industrial-grade technology platform without burning capital on software development or monthly vendor fees, **HINOPT Technologies proposes a 2-Year Strategic Partnership**:
+To ensure Admobitics operates on a resilient, industrial-grade technology platform without burning capital on third-party software development or recurring software vendor subscriptions, **HINOPT Technologies proposes a 2-Year Strategic Partnership**:
 
-* **Complete Software Platform for 100% Free (2 Years):** HINOPT provides the Android Display Player Kiosk software, Cloud Infrastructure, and the Admobitics Management Portal at **zero license cost (₹0)**.
-* **Mutual Growth Through Co-Branding:** As fellow startups growing together, Admobitics includes **1 companion slot in the loop for HINOPT branding** across its auto screens, allowing both companies to build brand awareness side-by-side.
-* **Long-Term Support:** From Year 3 onwards, Admobitics contributes a nominal, subsidized maintenance fee of just **₹100 per screen / month** to assist with raw cloud server hosting, while keeping the co-marketing slot active.
+* **Complete Software Platform for 100% Free (2 Years):** HINOPT delivers the Android Display Player Kiosk software, Cloud Infrastructure, and the Admobitics Management Portal at **zero license cost (₹0)**.
+* **Mutual Growth Through Co-Branding:** As fellow startups building the future together, Admobitics provides **1 companion slot (15 seconds)** in the standard playback loop for HINOPT branding and future tech products, driving brand visibility for both companies.
+* **Full Revenue Retention for Admobitics:** Admobitics keeps **100% of all commercial advertising revenue**. HINOPT takes zero commission, zero revenue cut, and zero setup fee.
+* **Long-Term Sustainable Maintenance:** From Year 3 onwards, Admobitics contributes a nominal, subsidized maintenance fee of just **₹100 per screen / month** to assist with raw cloud server hosting, while keeping the companion slot active.
 
 ---
 
-## 2. The Auto-Rickshaw Tech Challenge (And How HINOPT Solves It)
+## 2. HINOPT Technology Credentials & Engineering Proof
 
-Running digital screens inside moving auto-rickshaws in Hyderabad presents unique real-world challenges that crash standard consumer video players. HINOPT was built specifically to solve these problems:
+**HINOPT Technologies** ([hinopt.com](https://hinopt.com)) is a specialized digital product engineering and enterprise technology firm headquartered in Visakhapatnam and Hyderabad, India.
+
+### Verified Corporate & Technical Credentials:
+* **Official Website:** [https://hinopt.com](https://hinopt.com)
+* **Direct Contact:** `hello@hinopt.com` | `+91 9390952712`
+* **Core Competency:** Enterprise offline-first applications, native Android hardware kiosks, multi-tenant cloud platforms, and automated workflow systems.
+* **Existing Proof with Admobitics:** HINOPT designed, engineered, and deployed Admobitics' primary public digital platform ([admobitics.vercel.app](https://admobitics.vercel.app)), giving HINOPT direct institutional knowledge of Admobitics' brand identity, market positioning, and operational objectives.
+* **Proven Production Track Record:**
+  * *Dream Desserts:* Real-time QR ordering, billing, and store operations engine.
+  * *Cafe Coffee Delite:* Contactless in-store dining & digital table ordering ecosystem.
+  * *Hinopt Restaurant Platform:* Multi-branch order orchestration and kitchen display software.
+  * *Hinopt Hostel System:* Resident operations and student companion management platform.
+
+---
+
+## 3. The Auto-Rickshaw Tech Challenge (And How HINOPT Solves It)
+
+Running digital screens inside moving auto-rickshaws in Hyderabad presents severe hardware and environmental hurdles that crash standard consumer video players. HINOPT was engineered specifically to solve these operational pain points:
 
 | The Operational Challenge | The Risk to Admobitics | How HINOPT Solves It |
 | :--- | :--- | :--- |
@@ -34,40 +55,23 @@ Running digital screens inside moving auto-rickshaws in Hyderabad presents uniqu
 
 ---
 
-## 3. What Admobitics Gets (Zero Cost, Full Ownership of Ad Revenue)
+## 4. What Admobitics Gets (Zero Cost, Full Ownership of Ad Revenue)
 
-```mermaid
-flowchart TD
-    subgraph HINOPT_Delivers["What HINOPT Delivers (100% Free)"]
-        APK["HINOPT Auto Kiosk Player APK (Kotlin + Media3)"]
-        Portal["Admobitics Operations Portal (Flutter Web & Desktop)"]
-        Cloud["High-Speed Cloud Media Storage (Cloudflare R2)"]
-        Reports["Proof-of-Play Billing Reports for Your Advertisers"]
-    end
-
-    subgraph Admobitics_Benefits["What Admobitics Keeps"]
-        AdRev["Collect 100% of Revenue from All Your Commercial Advertisers"]
-        ZeroTech["Zero Software Development or Monthly Vendor Bills"]
-        Scale["Scale from 10 to 50+ Autos on the Same Robust Platform"]
-    end
-
-    HINOPT_Delivers --> Admobitics_Benefits
-```
-
-1. **Admobitics Operations Portal:** A clean, easy-to-use web dashboard where your team can upload video ads, assign schedules, and manage screens without needing any technical knowledge.
-2. **Kiosk Player Software:** Built natively in Kotlin with hardware acceleration to prevent overheating and ensure 1080p smooth video playback on the TPC 151TCT panels.
-3. **Verified Proof-of-Play Reports:** The player tallies completed plays locally, giving Admobitics professional reporting data to build trust with local Hyderabad businesses.
+1. **Admobitics Operations Web Portal:** A clean, easy-to-use web dashboard where your team can upload video ads, assign schedules, and manage screens without needing any technical knowledge.
+2. **Kiosk Player Software (Kotlin + Media3):** Built natively with hardware acceleration to prevent overheating and ensure 1080p smooth video playback on the TPC 151TCT panels.
+3. **Verified Proof-of-Play (PoP) Reports:** The player tallies completed plays locally, giving Admobitics professional reporting data to build trust with local Hyderabad businesses.
 4. **100% Ad Revenue Kept by Admobitics:** Admobitics sells all its commercial ad slots and keeps **100% of all client revenue**.
+5. **Seamless Scalability:** Ready to scale from 10 auto screens to 50, 100, or 500+ across Hyderabad and Telangana without any platform re-architecture.
 
 ---
 
-## 4. Simple Terms of Partnership
+## 5. Simple Terms of Partnership
 
 ### Phase 1: Years 1 & 2 (Launch & Growth Phase)
 * **HINOPT Software License:** **₹0 (100% Free)** for all screens in the Admobitics auto fleet.
 * **Screen Quota:** Covers the initial 10 auto screens and automatically scales to support new screens as Admobitics expands.
-* **Co-Marketing Support:** Admobitics reserves **1 slot (15 seconds)** in the standard loop across screens to showcase HINOPT branding and future tech products.
-* **Zero Overhead:** Admobitics pays nothing for the software, updates, or maintenance.
+* **Co-Marketing Support:** Admobitics reserves **1 companion slot (15 seconds)** in the standard loop across screens to showcase HINOPT branding and future tech products.
+* **Zero Overhead:** Admobitics pays nothing for the software, updates, bug fixes, or maintenance.
 
 ### Phase 2: Year 3 Onwards (Long-Term Maintenance)
 * **Nominal Maintenance Contribution:** Admobitics contributes a small fee of **₹100 per active screen / month** to assist in covering raw cloud hosting and database costs.
@@ -76,26 +80,33 @@ flowchart TD
 
 ---
 
-## 5. 7-Day Pilot Onboarding Plan
+## 6. 7-Day Pilot Onboarding Plan
 
-```
-+------------+--------------------------------------------------------------+
-| Timeline   | Action Item                                                  |
-+------------+--------------------------------------------------------------+
-| Day 1 - 2  | Review and agree on strategic partnership terms.             |
-| Day 3      | Install HINOPT APK on 2 pilot autos for a 48-hour road test. |
-| Day 4 - 5  | Verify auto-boot on ignition and offline continuous loop.    |
-| Day 6      | Install APK across the remaining 8 autos.                    |
-| Day 7      | Launch live commercial advertiser campaigns smoothly!        |
-+------------+--------------------------------------------------------------+
-```
+| Timeline | Action Item & Milestone |
+| :--- | :--- |
+| **Day 1 – 2** | Review and sign mutual partnership terms. |
+| **Day 3** | Install HINOPT APK on 2 pilot autos for a 48-hour road test. |
+| **Day 4 – 5** | Verify auto-boot on ignition, vibration resilience, and offline continuous loop. |
+| **Day 6** | Install APK across the remaining 8 auto-rickshaws. |
+| **Day 7** | Launch live commercial advertiser campaigns smoothly across all 10 screens! |
 
 ---
 
-## 6. Conclusion
+## 7. Partnership Agreement & Execution Sign-Off
 
-This partnership gives **Admobitics a rock-solid, production-grade technology platform built specifically for moving auto-rickshaws at zero cost**, allowing Admobitics to focus 100% on signing advertisers and generating revenue, while both companies build brand visibility across Hyderabad.
+By signing below, both parties acknowledge and accept this strategic partnership on the terms outlined above.
 
-**HINOPT Technologies**  
-Hyderabad, Telangana  
-*Email:* contact@hinopt.com
+| HINOPT Technologies (Platform Partner) | Admobitics (Media & Fleet Partner) |
+| :--- | :--- |
+| **Authorized Signatory:** _______________________ | **Authorized Signatory:** _______________________ |
+| **Name:** _____________________________________ | **Name:** _____________________________________ |
+| **Designation:** Founder / Technical Director | **Designation:** Managing Partner / Director |
+| **Date:** _____________________________________ | **Date:** _____________________________________ |
+| **Contact:** hello@hinopt.com \| +91 9390952712 | **Contact:** contact@admobitics.com |
+| **Website:** https://hinopt.com | **Website:** https://admobitics.vercel.app |
+| <br><br>*(Company Seal / Stamp)* | <br><br>*(Company Seal / Stamp)* |
+
+---
+
+**HINOPT Technologies** — Hyderabad & Visakhapatnam, India  
+*Official Web:* [https://hinopt.com](https://hinopt.com)

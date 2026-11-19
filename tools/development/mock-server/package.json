@@ -1,0 +1,12 @@
+{
+  "name": "hinopt-mock-server",
+  "version": "1.0.0",
+  "description": "Zero-dependency local simulator for HINOPT Sovereign Authority and Admobitics Advertising APIs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["hinopt", "admobitics", "mock-server", "digital-signage"],
+  "author": "HINOPT Platform Architecture Team",
+  "license": "UNLICENSED"
+}

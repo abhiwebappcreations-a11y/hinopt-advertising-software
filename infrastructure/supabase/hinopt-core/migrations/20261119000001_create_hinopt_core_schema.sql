@@ -2,7 +2,7 @@
 -- HINOPT Sovereign Authority Database Schema
 -- Database / Project: hinopt-core (Supabase Project 1)
 -- Scope: Master Tenants, Hardware Devices, Keystore Keys, Licences, Telemetry
--- Version: 1.0.0 (Phase 1 Baseline)
+-- Version: 1.0.0 (Phase 1 Baseline - Clean Production / Zero Demo Data)
 -- ============================================================================
 
 -- Enable required extensions
@@ -21,12 +21,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ----------------------------------------------------------------------------
--- 2. Master Tenants Table
+-- 2. Master Tenants / Clients Table (Zero Demo Data - Purely Registered Clients)
 -- ----------------------------------------------------------------------------
 CREATE TABLE hinopt_tenants (
-    tenant_id TEXT PRIMARY KEY,
+    tenant_id TEXT PRIMARY KEY, -- e.g. client slug or UUID
     name TEXT NOT NULL,
     contact_email TEXT NOT NULL,
+    contact_phone TEXT,
     max_screens_quota INTEGER NOT NULL DEFAULT 10 CHECK (max_screens_quota >= 1),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -37,13 +38,11 @@ CREATE TRIGGER trg_hinopt_tenants_updated_at
     BEFORE UPDATE ON hinopt_tenants
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Seed initial sovereign tenant: Admobitics
-INSERT INTO hinopt_tenants (tenant_id, name, contact_email, max_screens_quota)
-VALUES ('admobitics', 'Admobitics Advertising Operations', 'ops@admobitics.hinopt.com', 100)
-ON CONFLICT (tenant_id) DO NOTHING;
+-- Zero Demo Data Invariant: NO pre-seeded demo clients.
+-- Clients appear here ONLY when created by HINOPT Super Admin.
 
 -- ----------------------------------------------------------------------------
--- 3. Licence Plans Table
+-- 3. Licence Plans Table (Master Tier Templates)
 -- ----------------------------------------------------------------------------
 CREATE TABLE hinopt_licence_plans (
     plan_id TEXT PRIMARY KEY,
@@ -55,7 +54,7 @@ CREATE TABLE hinopt_licence_plans (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Seed baseline plans
+-- Baseline system plan templates (system definitions, not client demo data)
 INSERT INTO hinopt_licence_plans (plan_id, name, max_offline_days, features)
 VALUES 
     ('STANDARD', 'Standard Commercial Kiosk', 30, '["FULL_SCREEN_1080P", "SPLIT_SCREEN_ZONES", "OFFLINE_PLAYBACK_30D"]'::jsonb),
@@ -64,11 +63,11 @@ VALUES
 ON CONFLICT (plan_id) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
--- 4. Master Devices Table (Hardware Registry)
+-- 4. Master Devices Table (Hardware Registry - Zero Demo Data)
 -- ----------------------------------------------------------------------------
 CREATE TABLE hinopt_devices (
     hinopt_device_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id TEXT NOT NULL REFERENCES hinopt_tenants(tenant_id),
+    tenant_id TEXT NOT NULL REFERENCES hinopt_tenants(tenant_id) ON DELETE RESTRICT,
     name TEXT NOT NULL,
     activation_code TEXT UNIQUE,
     activation_code_expires_at TIMESTAMPTZ,
@@ -89,6 +88,9 @@ CREATE TRIGGER trg_hinopt_devices_updated_at
     BEFORE UPDATE ON hinopt_devices
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+-- Zero Demo Data Invariant: NO fake/demo devices.
+-- Devices appear ONLY when an actual physical screen boots and is enrolled.
+
 -- ----------------------------------------------------------------------------
 -- 5. Device Cryptographic Public Keys (AndroidKeyStore ECDSA P-256)
 -- ----------------------------------------------------------------------------
@@ -108,7 +110,7 @@ CREATE TABLE hinopt_licences (
     hinopt_device_id UUID NOT NULL REFERENCES hinopt_devices(hinopt_device_id) ON DELETE CASCADE,
     tenant_id TEXT NOT NULL REFERENCES hinopt_tenants(tenant_id),
     plan_id TEXT NOT NULL REFERENCES hinopt_licence_plans(plan_id),
-    signed_token TEXT NOT NULL, -- Compact JWT signed via backend Ed25519 KMS key
+    signed_token TEXT NOT NULL,
     valid_from TIMESTAMPTZ NOT NULL,
     valid_until TIMESTAMPTZ NOT NULL,
     max_offline_days INTEGER NOT NULL DEFAULT 30,
@@ -122,7 +124,7 @@ CREATE INDEX idx_hinopt_licences_device ON hinopt_licences(hinopt_device_id, is_
 CREATE INDEX idx_hinopt_licences_tenant ON hinopt_licences(tenant_id);
 
 -- ----------------------------------------------------------------------------
--- 7. Device Telemetry Heartbeats Table (Timescale / Partition Candidate)
+-- 7. Device Telemetry Heartbeats Table
 -- ----------------------------------------------------------------------------
 CREATE TABLE hinopt_heartbeats (
     id BIGSERIAL PRIMARY KEY,

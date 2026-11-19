@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">HINOPT Display Player</string>
+    <string name="pairing_title">Register Screen Display</string>
+    <string name="pairing_instruction">Enter this 6-digit activation code in your HINOPT Super-Admin Portal:</string>
+    <string name="pairing_code_placeholder">------</string>
+    <string name="status_unregistered">Status: Unregistered (Waiting for activation)</string>
+    <string name="status_registered">Status: Active &amp; Playing</string>
+    <string name="status_quarantine">SECURITY ALERT: Tamper / Clock Rollback Detected. Playback suspended.</string>
+</resources>

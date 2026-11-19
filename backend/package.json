@@ -1,0 +1,11 @@
+{
+  "name": "@hinopt/backend-suite",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "HINOPT Backend Microservices Suite (Licensing, Advertising, Media)",
+  "scripts": {
+    "build:all": "node scripts/build-all.js",
+    "test:all": "node scripts/test-all.js",
+    "start:all": "node scripts/start-all.js"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@hinopt/media-service",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Admobitics & HINOPT Media Ingestion, Cloudflare R2 Upload & Retention Service",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "node node_modules/typescript/bin/tsc",
+    "start": "node dist/index.js",
+    "dev": "node node_modules/tsx/dist/cli.mjs watch src/index.ts",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "@aws-sdk/client-s3": "^3.750.0",
+    "@aws-sdk/s3-request-presigner": "^3.750.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^22.13.4",
+    "typescript": "^5.7.3",
+    "tsx": "^4.19.2"
+  }
+}

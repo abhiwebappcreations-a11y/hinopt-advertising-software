@@ -1,0 +1,19 @@
+{
+  "name": "hinopt-advertising-platform",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HINOPT Multi-Tenant Digital Signage & Advertising Management Platform",
+  "scripts": {
+    "test": "node --test tests/integration/full-system-e2e.test.js && node backend/scripts/test-all.js",
+    "test:security": "node tests/security/tamper-detection-test.js",
+    "test:contracts": "node tests/integration/contract-test.js",
+    "build:backend": "node backend/scripts/build-all.js",
+    "build:admin": "cd apps/hinopt-admin && npm run build",
+    "build:portal": "cd apps/business-admin && npm run build",
+    "build:all": "node backend/scripts/build-all.js && cd apps/hinopt-admin && npm run build && cd ../business-admin && npm run build",
+    "start:backend": "node backend/scripts/start-all.js",
+    "start:admin": "cd apps/hinopt-admin && npm run dev",
+    "start:portal": "cd apps/business-admin && npm run dev"
+  }
+}

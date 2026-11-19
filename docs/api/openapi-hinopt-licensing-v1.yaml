@@ -1,0 +1,382 @@
+openapi: 3.1.0
+info:
+  title: HINOPT Master Licensing & Device Authority API
+  description: Sovereign authority API governing display hardware authorization, cryptographic identity registration, Ed25519 licence issuance, and telemetry heartbeats.
+  version: 1.0.0
+  contact:
+    name: HINOPT Platform Architecture Team
+    email: architecture@hinopt.com
+
+servers:
+  - url: https://authority.hinopt.com/v1
+    description: Production HINOPT Sovereign Authority Gateway
+
+paths:
+  /devices/pre-authorize:
+    post:
+      summary: Pre-authorize a screen activation code
+      description: Invoked by a HINOPT Super-Administrator to approve a pending 6-digit screen activation code, binding it to a commercial tenant (Admobitics) and licence plan.
+      security:
+        - SuperAdminAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreAuthorizeRequest'
+      responses:
+        '200':
+          description: Activation code successfully pre-authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreAuthorizeResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /devices/enroll:
+    post:
+      summary: Cryptographically enroll a display unit
+      description: Polled by the TPC 151TCT display player presenting its 6-digit activation code and hardware-backed ECDSA P-256 public key. Returns permanent hinopt_device_id and signed Ed25519 licence.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrollmentRequest'
+      responses:
+        '201':
+          description: Device successfully enrolled and licensed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /devices/{hinopt_device_id}/heartbeat:
+    post:
+      summary: Ingest display telemetry and refresh licence
+      description: Periodic 5-minute health heartbeat transmitted by displays. Returns authoritative server time for clock re-anchoring and rolling licence auto-renewals.
+      security:
+        - DeviceSignatureAuth: []
+      parameters:
+        - name: hinopt_device_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeartbeatRequest'
+      responses:
+        '200':
+          description: Heartbeat ingested; server time anchor returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeartbeatResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /devices:
+    get:
+      summary: List all enrolled displays
+      description: Returns fleet status, online health, hardware models, and assigned licence tiers across all screens.
+      security:
+        - SuperAdminAuth: []
+      parameters:
+        - name: tenant_id
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [UNENROLLED, PENDING, ACTIVE, SUSPENDED, REVOKED]
+      responses:
+        '200':
+          description: Array of device records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeviceSummary'
+
+  /devices/{hinopt_device_id}/revoke:
+    post:
+      summary: Revoke display master licence
+      description: Immediately revokes a display's software licence, halting commercial advertising on its next check-in.
+      security:
+        - SuperAdminAuth: []
+      parameters:
+        - name: hinopt_device_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  example: "Venue contract terminated by mutual agreement"
+      responses:
+        '200':
+          description: Display licence successfully revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hinopt_device_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: "REVOKED"
+                  revoked_at:
+                    type: string
+                    format: date-time
+
+  /devices/{hinopt_device_id}/replace:
+    post:
+      summary: Replace hardware display unit
+      description: Re-binds a replacement hardware display to an existing hinopt_device_id using a new activation code.
+      security:
+        - SuperAdminAuth: []
+      parameters:
+        - name: hinopt_device_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_activation_code]
+              properties:
+                new_activation_code:
+                  type: string
+                  example: "M49X2L"
+      responses:
+        '200':
+          description: Hardware replacement paired successfully
+
+components:
+  securitySchemes:
+    SuperAdminAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    DeviceSignatureAuth:
+      type: apiKey
+      in: header
+      name: X-Device-Signature
+      description: ECDSA P-256 signature computed by AndroidKeyStore over METHOD\nPATH\nTIMESTAMP\nSHA256(BODY).
+
+  schemas:
+    PreAuthorizeRequest:
+      type: object
+      required: [activation_code, tenant_id, name, plan_id]
+      properties:
+        activation_code:
+          type: string
+          example: "K97M2P"
+        tenant_id:
+          type: string
+          example: "admobitics"
+        name:
+          type: string
+          example: "Delhi Metro - Rajiv Chowk Concourse 1"
+        plan_id:
+          type: string
+          example: "STANDARD"
+        max_offline_days:
+          type: integer
+          default: 30
+
+    PreAuthorizeResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "PRE_AUTHORIZED"
+        activation_code:
+          type: string
+        tenant_id:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+
+    EnrollmentRequest:
+      type: object
+      required: [activation_code, public_key_pem, hardware_model, os_version]
+      properties:
+        activation_code:
+          type: string
+          example: "K97M2P"
+        public_key_pem:
+          type: string
+          description: X.509 SubjectPublicKeyInfo PEM string of device ECDSA P-256 key
+        hardware_model:
+          type: string
+          example: "TPC 151TCT"
+        os_version:
+          type: string
+          example: "Android 10 (API 29)"
+        app_version:
+          type: string
+          example: "1.0.0-build.42"
+
+    EnrollmentResponse:
+      type: object
+      properties:
+        hinopt_device_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+        assigned_name:
+          type: string
+        licence:
+          type: object
+          properties:
+            licence_id:
+              type: string
+              format: uuid
+            plan_id:
+              type: string
+            valid_from:
+              type: integer
+            valid_until:
+              type: integer
+            max_offline_days:
+              type: integer
+            signed_token:
+              type: string
+              description: Compact JWT signed with HINOPT Ed25519 private key
+
+    HeartbeatRequest:
+      type: object
+      required: [timestamp, app_version, metrics, player_state]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        app_version:
+          type: string
+        metrics:
+          type: object
+          properties:
+            cpu_temp_celsius:
+              type: number
+            memory_used_mb:
+              type: integer
+            memory_free_mb:
+              type: integer
+            storage_used_bytes:
+              type: integer
+            storage_free_bytes:
+              type: integer
+            uptime_seconds:
+              type: integer
+        player_state:
+          type: object
+          properties:
+            is_kiosk_locked:
+              type: boolean
+            active_licence_id:
+              type: string
+              format: uuid
+            time_machine_state:
+              type: string
+              enum: [TIME_SYNCHRONIZED, CONTINUOUS_OFFLINE, UNTRUSTED_OFFLINE_REBOOT, CLOCK_ROLLBACK_QUARANTINE]
+            current_campaign_id:
+              type: string
+              format: uuid
+              nullable: true
+
+    HeartbeatResponse:
+      type: object
+      properties:
+        server_time:
+          type: string
+          format: date-time
+        licence_status:
+          type: string
+          enum: [VALID, RENEWED, REVOKED, EXPIRED]
+        renewed_licence_token:
+          type: string
+          nullable: true
+          description: Populated with fresh 30-day token when within 7 days of expiration
+
+    DeviceSummary:
+      type: object
+      properties:
+        hinopt_device_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        tenant_id:
+          type: string
+        status:
+          type: string
+        hardware_model:
+          type: string
+        last_heartbeat:
+          type: string
+          format: date-time
+
+    ErrorPayload:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, timestamp]
+          properties:
+            code:
+              type: string
+              example: "ACTIVATION_CODE_EXPIRED"
+            message:
+              type: string
+              example: "The 6-digit activation code has expired. Please refresh the screen."
+            timestamp:
+              type: string
+              format: date-time
+
+  responses:
+    ErrorResponse:
+      description: Standard Structured Error Format (Option A)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorPayload'

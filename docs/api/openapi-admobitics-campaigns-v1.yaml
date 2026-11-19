@@ -1,0 +1,407 @@
+openapi: 3.1.0
+info:
+  title: Admobitics Advertising Operations & Manifest API
+  description: API for managing direct-booked campaigns, day-parting grids, screen configurations, O(1) sync manifests, and proof-of-play report ingestion.
+  version: 1.0.0
+  contact:
+    name: Admobitics Operations Team
+    email: api@admobitics.hinopt.com
+
+servers:
+  - url: https://api.admobitics.hinopt.com/v1
+    description: Production Admobitics Advertising Gateway
+
+paths:
+  /displays/{hinopt_device_id}/sync-manifest:
+    get:
+      summary: Retrieve compiled screen sync manifest
+      description: Polled by display units over HTTPS REST. Supports HTTP If-None-Match with manifest_version hash returning 304 Not Modified when unchanged.
+      security:
+        - DeviceSignatureAuth: []
+      parameters:
+        - name: hinopt_device_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: If-None-Match
+          in: header
+          schema:
+            type: string
+            example: '"v42-1731845400"'
+      responses:
+        '200':
+          description: Full compiled sync manifest JSON
+          headers:
+            ETag:
+              schema:
+                type: string
+                example: '"v43-1731849000"'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncManifest'
+        '304':
+          description: Manifest unchanged since last poll; continue playing cached local schedule
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /displays/{hinopt_device_id}/playback-reports:
+    post:
+      summary: Ingest aggregated proof-of-play summaries
+      description: Uploads offline-accumulated proof-of-play tallies (completed impressions, total seconds, interruptions) per campaign per day.
+      security:
+        - DeviceSignatureAuth: []
+      parameters:
+        - name: hinopt_device_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaybackReportBatch'
+      responses:
+        '202':
+          description: Playback batch successfully queued for reconciliation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ACCEPTED"
+                  acknowledged_count:
+                    type: integer
+                    example: 12
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /campaigns:
+    get:
+      summary: List advertising campaigns
+      security:
+        - AdmobiticsAdminAuth: []
+      parameters:
+        - name: advertiser_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [DRAFT, PENDING_APPROVAL, SCHEDULED, ACTIVE, PAUSED, EXPIRED, ARCHIVED]
+      responses:
+        '200':
+          description: Array of campaign objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Campaign'
+    post:
+      summary: Create new direct-booked campaign
+      security:
+        - AdmobiticsAdminAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCampaignRequest'
+      responses:
+        '201':
+          description: Campaign created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+
+  /campaigns/{campaign_id}/approve:
+    post:
+      summary: Approve pending campaign for deployment
+      description: Transition a campaign from PENDING_APPROVAL to SCHEDULED. Increments target screen manifest versions.
+      security:
+        - AdmobiticsAdminAuth: []
+      parameters:
+        - name: campaign_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Campaign approved and scheduled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campaign_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: "SCHEDULED"
+
+  /displays/{hinopt_device_id}/config:
+    put:
+      summary: Update screen operational configuration
+      description: Update fallback mode, audio policy, SOV rotation, layout template, and download windows.
+      security:
+        - AdmobiticsAdminAuth: []
+      parameters:
+        - name: hinopt_device_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScreenConfigUpdate'
+      responses:
+        '200':
+          description: Configuration updated; manifest_version incremented
+
+components:
+  securitySchemes:
+    AdmobiticsAdminAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    DeviceSignatureAuth:
+      type: apiKey
+      in: header
+      name: X-Device-Signature
+
+  schemas:
+    SyncManifest:
+      type: object
+      required: [manifest_version, generated_at, screen_config, campaigns, fallback_asset]
+      properties:
+        manifest_version:
+          type: integer
+          example: 43
+        generated_at:
+          type: string
+          format: date-time
+        screen_config:
+          type: object
+          properties:
+            display_name:
+              type: string
+            fallback_mode:
+              type: string
+              enum: [HOUSE_LOOP, STATIC_IMAGE, BLACK_SCREEN]
+            audio_policy:
+              type: string
+              enum: [MUTED_GLOBAL, ENABLED_WITH_LIMIT, SCHEDULED_AUDIO]
+            rotation_policy:
+              type: string
+              enum: [ROUND_ROBIN, WEIGHTED_SOV]
+            layout_mode:
+              type: string
+              enum: [FULL_SCREEN_1080P, SPLIT_SCREEN_DUAL_VIDEO, SPLIT_SCREEN_TICKER]
+            pop_upload_trigger:
+              type: string
+              enum: [DAILY_END_OF_DAY, CAMPAIGN_DEADLINE]
+        campaigns:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManifestCampaign'
+        fallback_asset:
+          $ref: '#/components/schemas/ManifestAsset'
+
+    ManifestCampaign:
+      type: object
+      properties:
+        campaign_id:
+          type: string
+          format: uuid
+        flight_start_date:
+          type: string
+          format: date
+        flight_end_date:
+          type: string
+          format: date
+        weight:
+          type: integer
+          example: 2
+        day_parts:
+          type: array
+          items:
+            type: object
+            properties:
+              days_of_week:
+                type: array
+                items:
+                  type: string
+              start_time:
+                type: string
+                example: "08:00:00"
+              end_time:
+                type: string
+                example: "14:00:00"
+        creatives:
+          type: array
+          items:
+            $ref: '#/components/schemas/ManifestAsset'
+
+    ManifestAsset:
+      type: object
+      properties:
+        asset_id:
+          type: string
+          format: uuid
+        media_type:
+          type: string
+          enum: [VIDEO, IMAGE]
+        duration_seconds:
+          type: integer
+        file_size_bytes:
+          type: integer
+        sha256:
+          type: string
+        download_url:
+          type: string
+          format: uri
+
+    PlaybackReportBatch:
+      type: object
+      required: [report_batch_id, hinopt_device_id, summaries]
+      properties:
+        report_batch_id:
+          type: string
+          format: uuid
+        hinopt_device_id:
+          type: string
+          format: uuid
+        summaries:
+          type: array
+          items:
+            type: object
+            required: [campaign_id, asset_id, reporting_date, impressions_count, total_seconds_played]
+            properties:
+              campaign_id:
+                type: string
+                format: uuid
+              asset_id:
+                type: string
+                format: uuid
+              reporting_date:
+                type: string
+                format: date
+              impressions_count:
+                type: integer
+              total_seconds_played:
+                type: integer
+              interrupted_count:
+                type: integer
+              first_play_timestamp:
+                type: string
+                format: date-time
+              last_play_timestamp:
+                type: string
+                format: date-time
+
+    Campaign:
+      type: object
+      properties:
+        campaign_id:
+          type: string
+          format: uuid
+        advertiser_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        flight_start_date:
+          type: string
+          format: date
+        flight_end_date:
+          type: string
+          format: date
+        weight:
+          type: integer
+        status:
+          type: string
+
+    CreateCampaignRequest:
+      type: object
+      required: [advertiser_id, name, flight_start_date, flight_end_date]
+      properties:
+        advertiser_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        flight_start_date:
+          type: string
+          format: date
+        flight_end_date:
+          type: string
+          format: date
+        weight:
+          type: integer
+          default: 1
+
+    ScreenConfigUpdate:
+      type: object
+      properties:
+        fallback_mode:
+          type: string
+          enum: [HOUSE_LOOP, STATIC_IMAGE, BLACK_SCREEN]
+        audio_policy:
+          type: string
+          enum: [MUTED_GLOBAL, ENABLED_WITH_LIMIT, SCHEDULED_AUDIO]
+        rotation_policy:
+          type: string
+          enum: [ROUND_ROBIN, WEIGHTED_SOV]
+        layout_mode:
+          type: string
+          enum: [FULL_SCREEN_1080P, SPLIT_SCREEN_DUAL_VIDEO, SPLIT_SCREEN_TICKER]
+        download_window_mode:
+          type: string
+          enum: [IMMEDIATE, SCHEDULED_OFF_PEAK]
+
+    ErrorPayload:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, timestamp]
+          properties:
+            code:
+              type: string
+              example: "CAMPAIGN_NOT_FOUND"
+            message:
+              type: string
+              example: "The requested campaign does not exist or has been archived."
+            timestamp:
+              type: string
+              format: date-time
+
+  responses:
+    ErrorResponse:
+      description: Standard Structured Error Format (Option A)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorPayload'

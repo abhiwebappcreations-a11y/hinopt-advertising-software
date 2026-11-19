@@ -1,0 +1,196 @@
+openapi: 3.1.0
+info:
+  title: Admobitics Media Ingestion & Cloudflare R2 Upload API
+  description: Service coordinating pre-signed direct S3 uploads to Cloudflare R2, media transcoding validation, SHA-256 integrity registration, and automated 3-day retention purges.
+  version: 1.0.0
+  contact:
+    name: Admobitics Media Infrastructure Team
+    email: media@admobitics.hinopt.com
+
+servers:
+  - url: https://media.admobitics.hinopt.com/v1
+    description: Production Media Ingestion Gateway
+
+paths:
+  /media/request-upload:
+    post:
+      summary: Request pre-signed Cloudflare R2 upload URL
+      description: Validates video/image constraints (1080p, MP4/JPEG/PNG, max 50MB) and returns a pre-signed Cloudflare R2 S3 PUT URL valid for 15 minutes.
+      security:
+        - MediaAdminAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadRequest'
+      responses:
+        '200':
+          description: Pre-signed upload URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /media/confirm-upload:
+    post:
+      summary: Confirm upload and verify R2 object
+      description: Invoked by the portal after direct binary upload completes. Verifies byte size on Cloudflare R2, records SHA-256 hash, and sets r2_purge_at to Flight End Date + 3 Days.
+      security:
+        - MediaAdminAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmUploadRequest'
+      responses:
+        '201':
+          description: Media asset registered and attached to campaign
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /media/{asset_id}:
+    get:
+      summary: Get creative asset metadata
+      security:
+        - MediaAdminAuth: []
+      parameters:
+        - name: asset_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Asset metadata and public CDN URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaAsset'
+
+components:
+  securitySchemes:
+    MediaAdminAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UploadRequest:
+      type: object
+      required: [campaign_id, name, media_type, file_size_bytes, duration_seconds]
+      properties:
+        campaign_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Nike_AirMax_1080p_15s.mp4"
+        media_type:
+          type: string
+          enum: [VIDEO, IMAGE]
+        file_size_bytes:
+          type: integer
+          maximum: 52428800 # 50MB
+        duration_seconds:
+          type: integer
+          maximum: 60
+        width:
+          type: integer
+          default: 1920
+        height:
+          type: integer
+          default: 1080
+
+    UploadResponse:
+      type: object
+      properties:
+        asset_id:
+          type: string
+          format: uuid
+        r2_object_key:
+          type: string
+          example: "creatives/c1a2b3c4/a9b8c7d6.mp4"
+        upload_url:
+          type: string
+          format: uri
+          description: Pre-signed Cloudflare R2 S3 PUT URL (Expires in 900 seconds)
+        expires_at:
+          type: string
+          format: date-time
+
+    ConfirmUploadRequest:
+      type: object
+      required: [asset_id, sha256]
+      properties:
+        asset_id:
+          type: string
+          format: uuid
+        sha256:
+          type: string
+          description: Client-computed SHA-256 checksum (64 hex characters)
+          example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+    MediaAsset:
+      type: object
+      properties:
+        asset_id:
+          type: string
+          format: uuid
+        campaign_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        media_type:
+          type: string
+        cdn_url:
+          type: string
+          format: uri
+        duration_seconds:
+          type: integer
+        file_size_bytes:
+          type: integer
+        sha256:
+          type: string
+        r2_purge_at:
+          type: string
+          format: date-time
+        is_purged:
+          type: boolean
+
+    ErrorPayload:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, timestamp]
+          properties:
+            code:
+              type: string
+              example: "FILE_SIZE_EXCEEDED"
+            message:
+              type: string
+              example: "Video file exceeds maximum permitted size of 50MB."
+            timestamp:
+              type: string
+              format: date-time
+
+  responses:
+    ErrorResponse:
+      description: Standard Structured Error Format (Option A)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorPayload'

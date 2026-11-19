@@ -11,6 +11,7 @@
     "build:backend": "node backend/scripts/build-all.js",
     "build:admin": "cd apps/hinopt-admin && npm run build",
     "build:portal": "cd apps/business-admin && npm run build",
+    "build:apk": "powershell -ExecutionPolicy Bypass -File tools/build-apk.ps1",
     "build:all": "node backend/scripts/build-all.js && cd apps/hinopt-admin && npm run build && cd ../business-admin && npm run build",
     "start:backend": "node backend/scripts/start-all.js",
     "start:admin": "cd apps/hinopt-admin && npm run dev",

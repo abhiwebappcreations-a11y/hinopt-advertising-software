@@ -16,7 +16,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onRefresh, isRefreshing }) => {
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-lg text-white tracking-wide">ADMOBITICS</span>
+              <span className="font-bold text-lg text-white tracking-wide">HINOPT BUSINESS</span>
               <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 font-medium border border-blue-500/30">
                 AUTO MEDIA FLEET
               </span>

@@ -46,11 +46,11 @@ export const App: React.FC = () => {
       <Navbar onRefresh={loadData} isRefreshing={isRefreshing} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
-        {/* Admobitics Clean Data Notice */}
+        {/* Clean Data Notice */}
         <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 flex items-start space-x-3">
           <div className="w-2 h-2 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
           <p className="text-xs text-blue-200/90 leading-relaxed">
-            <strong>Admobitics Fleet Operations:</strong> Direct integration with HINOPT edge displays. Zero commission deducted — Admobitics retains 100% of all commercial advertiser revenue.
+            <strong>Commercial Fleet Operations:</strong> Direct integration with HINOPT edge displays. Zero commission deducted — client agency retains 100% of all commercial advertiser revenue.
           </p>
         </div>
 

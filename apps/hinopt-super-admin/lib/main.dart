@@ -353,7 +353,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Company Name (e.g. Admobitics)')),
+            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Client Company Name (e.g. Metro Media, Prime Ads)')),
             TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Contact Email')),
             TextField(controller: quotaCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Authorized Screen Quota')),
           ],
@@ -536,7 +536,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Center(
-            child: Text('Zero commercial tenants registered. Click "+ Add Tenant" to create Admobitics.',
+            child: Text('Zero commercial tenants registered. Click "+ Add Tenant" to register a client advertising agency.',
                 style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
           ),
         ),

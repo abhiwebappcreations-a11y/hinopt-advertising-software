@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.admobitics.admin" "\0"
-            VALUE "FileDescription", "admobitics_business_admin" "\0"
+            VALUE "CompanyName", "com.hinopt.admin" "\0"
+            VALUE "FileDescription", "hinopt_business_admin" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "admobitics_business_admin" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.admobitics.admin. All rights reserved." "\0"
-            VALUE "OriginalFilename", "admobitics_business_admin.exe" "\0"
-            VALUE "ProductName", "admobitics_business_admin" "\0"
+            VALUE "InternalName", "hinopt_business_admin" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.hinopt.admin. All rights reserved." "\0"
+            VALUE "OriginalFilename", "hinopt_business_admin.exe" "\0"
+            VALUE "ProductName", "hinopt_business_admin" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

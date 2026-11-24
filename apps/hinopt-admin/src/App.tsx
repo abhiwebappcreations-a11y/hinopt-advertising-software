@@ -36,7 +36,7 @@ export const App: React.FC = () => {
         <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 flex items-start space-x-3">
           <div className="w-2 h-2 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
           <p className="text-xs text-amber-200/90 leading-relaxed">
-            <strong>Clean Database Mode:</strong> This HINOPT Sovereign Master Instance operates with zero mock or demo data. Only verified commercial tenants (such as Admobitics) and physical screens registered via 6-digit cryptographic pairing will appear.
+            <strong>Clean Database Mode:</strong> This HINOPT Sovereign Master Instance operates with zero mock or demo data. Only verified commercial tenants and physical screens registered via 6-digit cryptographic pairing will appear.
           </p>
         </div>
 

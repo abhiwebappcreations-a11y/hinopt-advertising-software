@@ -8,5 +8,5 @@
 - Activation code approval and device enrollment lifecycle.
 - Cryptographic licence token issuance and plan tier configuration.
 - Device revocation and health telemetry monitoring.
-- Commercial tenant (Admobitics) quota management and billing.
+- Commercial client tenant quota management and licensing.
 - System-wide audit logs and cryptographic key rotation controls.

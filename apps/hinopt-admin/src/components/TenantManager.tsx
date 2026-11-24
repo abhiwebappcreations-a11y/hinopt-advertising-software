@@ -68,7 +68,7 @@ export const TenantManager: React.FC<TenantManagerProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <input
               type="text"
-              placeholder="Company Name (e.g. Admobitics)"
+              placeholder="Company Name (e.g. Metro Media, Prime Ads)"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"

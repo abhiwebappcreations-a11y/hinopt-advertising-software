@@ -12,7 +12,7 @@ for (const s of services) {
   console.log(`Compiling ${s}...`);
   const tscPath = path.resolve(serviceDir, 'node_modules', 'typescript', 'bin', 'tsc');
   const res = await new Promise((resolve) => {
-    const proc = spawn('node', [tscPath], { cwd: serviceDir, stdio: 'inherit', shell: true });
+    const proc = spawn('node', [tscPath], { cwd: serviceDir, stdio: 'inherit' });
     proc.on('close', code => resolve(code === 0));
   });
   if (!res) {

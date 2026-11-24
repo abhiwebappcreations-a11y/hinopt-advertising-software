@@ -18,8 +18,7 @@ for (const s of services) {
   const result = await new Promise((resolve) => {
     const proc = spawn('node', ['--test'], {
       cwd: serviceDir,
-      stdio: 'inherit',
-      shell: true
+      stdio: 'inherit'
     });
     proc.on('close', (code) => resolve(code === 0));
   });

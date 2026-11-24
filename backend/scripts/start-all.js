@@ -11,7 +11,7 @@ const services = [
 ];
 
 console.log('========================================================');
-console.log('   LAUNCHING ALL HINOPT & ADMOBITICS BACKEND SERVICES   ');
+console.log('   LAUNCHING ALL HINOPT BACKEND MICROSERVICES   ');
 console.log('========================================================');
 
 const processes = [];
@@ -21,8 +21,7 @@ for (const s of services) {
   console.log(`Starting ${s.name}...`);
   const proc = spawn('node', [s.file], {
     cwd: serviceDir,
-    stdio: 'inherit',
-    shell: true
+    stdio: 'inherit'
   });
   processes.push(proc);
 }

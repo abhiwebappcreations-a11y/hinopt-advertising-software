@@ -111,4 +111,12 @@
             android:gravity="center" />
     </LinearLayout>
 
+    <!-- Invisible Top-Right Corner Touch Zone for Owner / Technician Kiosk Exit (5 Taps) -->
+    <View
+        android:id="@+id/ownerExitTouchZone"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:layout_gravity="top|end"
+        android:background="@android:color/transparent" />
+
 </FrameLayout>

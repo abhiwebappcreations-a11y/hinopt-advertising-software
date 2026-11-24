@@ -2,12 +2,18 @@ package com.hinopt.player.ui
 
 import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.text.InputType
 import android.util.Log
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.widget.EditText
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.hinopt.player.data.db.AppDatabase
@@ -32,6 +38,7 @@ class MainActivity : AppCompatActivity() {
 
         timeManager = TimeSecurityManager(this)
 
+        setupOwnerExitGesture()
         enterKioskMode()
         evaluateDisplayState()
     }
@@ -125,6 +132,92 @@ class MainActivity : AppCompatActivity() {
         return sb.toString()
     }
 
+    private var ownerTapCount = 0
+    private var lastOwnerTapMs = 0L
+
+    private fun setupOwnerExitGesture() {
+        binding.ownerExitTouchZone.setOnClickListener {
+            val now = System.currentTimeMillis()
+            if (now - lastOwnerTapMs > 3000L) {
+                ownerTapCount = 1
+            } else {
+                ownerTapCount++
+            }
+            lastOwnerTapMs = now
+
+            if (ownerTapCount >= 5) {
+                ownerTapCount = 0
+                showOwnerPinDialog()
+            }
+        }
+    }
+
+    private fun showOwnerPinDialog() {
+        val pinInput = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            hint = "Enter 6-digit Owner PIN"
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("HINOPT Owner / Technician Access")
+            .setMessage("Enter the authorized technician PIN to exit kiosk lock or manage this screen.")
+            .setView(pinInput)
+            .setPositiveButton("Unlock") { _, _ ->
+                val sharedPrefs = getSharedPreferences("hinopt_device", Context.MODE_PRIVATE)
+                val expectedPin = sharedPrefs.getString("owner_pin", DEFAULT_OWNER_PIN) ?: DEFAULT_OWNER_PIN
+                if (pinInput.text.toString().trim() == expectedPin) {
+                    showOwnerActionsDialog()
+                } else {
+                    Toast.makeText(this, "Invalid Owner PIN", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showOwnerActionsDialog() {
+        val options = arrayOf(
+            "Exit Kiosk to Android Home",
+            "Open Android Wi-Fi & Device Settings",
+            "Reset / Unpair Screen",
+            "Resume Kiosk Mode"
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle("Screen Owner Controls")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        exitKioskMode()
+                        moveTaskToBack(true)
+                    }
+                    1 -> {
+                        exitKioskMode()
+                        startActivity(Intent(Settings.ACTION_SETTINGS))
+                    }
+                    2 -> {
+                        val sharedPrefs = getSharedPreferences("hinopt_device", Context.MODE_PRIVATE)
+                        sharedPrefs.edit().remove("device_id").remove("activation_code").apply()
+                        playbackEngine?.release()
+                        playbackEngine = null
+                        evaluateDisplayState()
+                        Toast.makeText(this, "Screen unpaired. Ready for new pairing code.", Toast.LENGTH_SHORT).show()
+                    }
+                    3 -> enterKioskMode()
+                }
+            }
+            .show()
+    }
+
+    private fun exitKioskMode() {
+        try {
+            stopLockTask()
+            Log.i(TAG, "Exited Android Kiosk LockTask mode via Owner PIN.")
+        } catch (e: Exception) {
+            Log.w(TAG, "LockTask exit warning: ${e.message}")
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         playbackEngine?.release()
@@ -132,5 +225,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
+        private const val DEFAULT_OWNER_PIN = "202600"
     }
 }

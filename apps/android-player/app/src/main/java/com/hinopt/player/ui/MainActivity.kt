@@ -24,6 +24,9 @@ import com.hinopt.player.security.TimeSecurityManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.Random
 
 class MainActivity : AppCompatActivity() {
@@ -118,9 +121,13 @@ class MainActivity : AppCompatActivity() {
             }
 
             binding.tvActivationCode.text = code
+            val serverIp = sharedPrefs.getString("server_ip", DEFAULT_SERVER_IP) ?: DEFAULT_SERVER_IP
+            binding.tvScreenStatus.text = "Waiting for Super-Admin pairing • Server: $serverIp (Tap to change)"
+            binding.tvScreenStatus.setOnClickListener { showServerIpDialog() }
             binding.pairingOverlay.visibility = View.VISIBLE
             binding.playerView.visibility = View.GONE
             Log.i(TAG, "Device unpaired. Displaying activation code: $code")
+            startEnrollmentPolling(code)
             return
         }
 
@@ -131,6 +138,70 @@ class MainActivity : AppCompatActivity() {
 
         playbackEngine = PlaybackEngine(this, binding.playerView, lifecycleScope)
         loadCachedPlaylist()
+    }
+
+    private var enrollmentJob: kotlinx.coroutines.Job? = null
+
+    private fun startEnrollmentPolling(code: String) {
+        enrollmentJob?.cancel()
+        enrollmentJob = lifecycleScope.launch(Dispatchers.IO) {
+            while (true) {
+                try {
+                    val sharedPrefs = getSharedPreferences("hinopt_device", Context.MODE_PRIVATE)
+                    if (sharedPrefs.getString("device_id", null) != null) break
+                    val serverIp = sharedPrefs.getString("server_ip", DEFAULT_SERVER_IP) ?: DEFAULT_SERVER_IP
+                    val url = URL("http://$serverIp:8081/v1/devices/enroll")
+                    val conn = (url.openConnection() as HttpURLConnection).apply {
+                        requestMethod = "POST"
+                        connectTimeout = 3000
+                        readTimeout = 3000
+                        setRequestProperty("Content-Type", "application/json")
+                        doOutput = true
+                    }
+                    val payload = """{"activation_code":"$code","hardware_model":"${Build.MODEL}","serial_number":"${Build.SERIAL}","android_id":"${Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)}"}"""
+                    OutputStreamWriter(conn.outputStream).use { it.write(payload) }
+
+                    if (conn.responseCode == 201) {
+                        val body = conn.inputStream.bufferedReader().use { it.readText() }
+                        val json = org.json.JSONObject(body)
+                        val newDeviceId = json.getString("hinopt_device_id")
+                        sharedPrefs.edit()
+                            .putString("device_id", newDeviceId)
+                            .putString("license_token", json.optString("license_token"))
+                            .apply()
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MainActivity, "Screen Paired Successfully!", Toast.LENGTH_LONG).show()
+                            evaluateDisplayState()
+                        }
+                        break
+                    }
+                } catch (_: Exception) {
+                    // Retry every 4 seconds until pre-authorized in Super-Admin
+                }
+                kotlinx.coroutines.delay(4000L)
+            }
+        }
+    }
+
+    private fun showServerIpDialog() {
+        val sharedPrefs = getSharedPreferences("hinopt_device", Context.MODE_PRIVATE)
+        val ipInput = EditText(this).apply {
+            setText(sharedPrefs.getString("server_ip", DEFAULT_SERVER_IP))
+            hint = "e.g. 10.149.241.51"
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Backend Server IP")
+            .setMessage("Enter your PC's Wi-Fi IPv4 address (running node scripts/start-all.js):")
+            .setView(ipInput)
+            .setPositiveButton("Save") { _, _ ->
+                val newIp = ipInput.text.toString().trim()
+                if (newIp.isNotEmpty()) {
+                    sharedPrefs.edit().putString("server_ip", newIp).apply()
+                    evaluateDisplayState()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun loadCachedPlaylist() {
@@ -241,6 +312,7 @@ class MainActivity : AppCompatActivity() {
         val options = arrayOf(
             "Exit Kiosk to Android Home",
             "Open Android Wi-Fi & Device Settings",
+            "Configure Backend Server IP",
             "Reset / Unpair Screen",
             "Resume Kiosk Mode"
         )
@@ -259,7 +331,8 @@ class MainActivity : AppCompatActivity() {
                         exitKioskMode()
                         startActivity(Intent(Settings.ACTION_SETTINGS))
                     }
-                    2 -> {
+                    2 -> showServerIpDialog()
+                    3 -> {
                         val sharedPrefs = getSharedPreferences("hinopt_device", Context.MODE_PRIVATE)
                         sharedPrefs.edit().remove("device_id").remove("activation_code").apply()
                         playbackEngine?.release()
@@ -267,7 +340,7 @@ class MainActivity : AppCompatActivity() {
                         evaluateDisplayState()
                         Toast.makeText(this, "Screen unpaired. Ready for new pairing code.", Toast.LENGTH_SHORT).show()
                     }
-                    3 -> {
+                    4 -> {
                         kioskPausedByOwner = false
                         enterKioskMode()
                     }
@@ -293,5 +366,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val DEFAULT_OWNER_PIN = "202600"
+        private const val DEFAULT_SERVER_IP = "10.149.241.51"
     }
 }

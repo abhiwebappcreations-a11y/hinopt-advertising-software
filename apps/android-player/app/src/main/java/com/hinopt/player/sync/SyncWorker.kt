@@ -45,7 +45,8 @@ class SyncWorker(
         Log.i(TAG, "Uploading ${pending.size} proof-of-play impression records to cloud...")
         val sharedPrefs = applicationContext.getSharedPreferences("hinopt_device", Context.MODE_PRIVATE)
         val deviceId = sharedPrefs.getString("device_id", null) ?: return
-        val backendUrl = sharedPrefs.getString("ads_backend_url", "http://10.0.2.2:8082")
+        val serverIp = sharedPrefs.getString("server_ip", "10.149.241.51") ?: "10.149.241.51"
+        val backendUrl = sharedPrefs.getString("ads_backend_url", "http://$serverIp:8082")
 
         val url = URL("$backendUrl/v1/displays/$deviceId/playback-reports")
         val conn = url.openConnection() as HttpURLConnection
@@ -85,7 +86,8 @@ class SyncWorker(
     private suspend fun pollManifestDelta() {
         val sharedPrefs = applicationContext.getSharedPreferences("hinopt_device", Context.MODE_PRIVATE)
         val deviceId = sharedPrefs.getString("device_id", null) ?: return
-        val backendUrl = sharedPrefs.getString("ads_backend_url", "http://10.0.2.2:8082")
+        val serverIp = sharedPrefs.getString("server_ip", "10.149.241.51") ?: "10.149.241.51"
+        val backendUrl = sharedPrefs.getString("ads_backend_url", "http://$serverIp:8082")
         val cachedETag = sharedPrefs.getString("cached_etag", null)
 
         val url = URL("$backendUrl/v1/displays/$deviceId/sync-manifest")

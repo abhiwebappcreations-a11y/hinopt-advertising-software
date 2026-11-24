@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.text.InputType
 import android.util.Log
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -37,10 +38,31 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         timeManager = TimeSecurityManager(this)
-
         setupOwnerExitGesture()
+
+        val recoveryPrefs = getSharedPreferences("hinopt_recovery", Context.MODE_PRIVATE)
+        if (recoveryPrefs.getBoolean("safe_mode", false)) {
+            exitKioskMode()
+            showSafeModeRecoveryDialog()
+            return
+        }
+
         enterKioskMode()
         evaluateDisplayState()
+
+        // Reset crash-loop counter if player runs stably for 15 seconds
+        lifecycleScope.launch {
+            kotlinx.coroutines.delay(15_000L)
+            recoveryPrefs.edit().putInt("crash_count", 0).apply()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val recoveryPrefs = getSharedPreferences("hinopt_recovery", Context.MODE_PRIVATE)
+        if (!kioskPausedByOwner && !recoveryPrefs.getBoolean("safe_mode", false)) {
+            enterKioskMode()
+        }
     }
 
     private fun enterKioskMode() {
@@ -134,6 +156,46 @@ class MainActivity : AppCompatActivity() {
 
     private var ownerTapCount = 0
     private var lastOwnerTapMs = 0L
+    private var volTapCount = 0
+    private var lastVolTapMs = 0L
+    private var kioskPausedByOwner = false
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            val now = System.currentTimeMillis()
+            volTapCount = if (now - lastVolTapMs > 3000L) 1 else volTapCount + 1
+            lastVolTapMs = now
+            if (volTapCount >= 5) {
+                volTapCount = 0
+                showOwnerPinDialog()
+                return true
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    private fun showSafeModeRecoveryDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("HINOPT Safe Mode (Crash Guard)")
+            .setMessage("Repeated app crashes were detected. Kiosk lock has been automatically disabled so you can safely recover or update the device.")
+            .setCancelable(false)
+            .setPositiveButton("Open Android Settings") { _, _ ->
+                kioskPausedByOwner = true
+                startActivity(Intent(Settings.ACTION_SETTINGS))
+            }
+            .setNeutralButton("Retry Player") { _, _ ->
+                getSharedPreferences("hinopt_recovery", Context.MODE_PRIVATE)
+                    .edit().putBoolean("safe_mode", false).putInt("crash_count", 0).apply()
+                kioskPausedByOwner = false
+                enterKioskMode()
+                evaluateDisplayState()
+            }
+            .setNegativeButton("Exit App") { _, _ ->
+                kioskPausedByOwner = true
+                finishAndRemoveTask()
+            }
+            .show()
+    }
 
     private fun setupOwnerExitGesture() {
         binding.ownerExitTouchZone.setOnClickListener {
@@ -188,10 +250,12 @@ class MainActivity : AppCompatActivity() {
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> {
+                        kioskPausedByOwner = true
                         exitKioskMode()
                         moveTaskToBack(true)
                     }
                     1 -> {
+                        kioskPausedByOwner = true
                         exitKioskMode()
                         startActivity(Intent(Settings.ACTION_SETTINGS))
                     }
@@ -203,7 +267,10 @@ class MainActivity : AppCompatActivity() {
                         evaluateDisplayState()
                         Toast.makeText(this, "Screen unpaired. Ready for new pairing code.", Toast.LENGTH_SHORT).show()
                     }
-                    3 -> enterKioskMode()
+                    3 -> {
+                        kioskPausedByOwner = false
+                        enterKioskMode()
+                    }
                 }
             }
             .show()

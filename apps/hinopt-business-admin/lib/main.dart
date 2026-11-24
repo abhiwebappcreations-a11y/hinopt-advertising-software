@@ -5,16 +5,16 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 void main() {
-  runApp(const AdmobiticsAdminApp());
+  runApp(const HinoptBusinessAdminApp());
 }
 
-class AdmobiticsAdminApp extends StatelessWidget {
-  const AdmobiticsAdminApp({super.key});
+class HinoptBusinessAdminApp extends StatelessWidget {
+  const HinoptBusinessAdminApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Admobitics Operations Portal',
+      title: 'HINOPT Business Admin',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF0B0F19),
@@ -32,19 +32,19 @@ class AdmobiticsAdminApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const AdmobiticsHomeScreen(),
+      home: const BusinessHomeScreen(),
     );
   }
 }
 
-class AdmobiticsHomeScreen extends StatefulWidget {
-  const AdmobiticsHomeScreen({super.key});
+class BusinessHomeScreen extends StatefulWidget {
+  const BusinessHomeScreen({super.key});
 
   @override
-  State<AdmobiticsHomeScreen> createState() => _AdmobiticsHomeScreenState();
+  State<BusinessHomeScreen> createState() => _BusinessHomeScreenState();
 }
 
-class _AdmobiticsHomeScreenState extends State<AdmobiticsHomeScreen> {
+class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
   String adsBaseUrl = 'http://localhost:8082/v1';
 
   List<dynamic> campaigns = [];
@@ -105,7 +105,7 @@ class _AdmobiticsHomeScreenState extends State<AdmobiticsHomeScreen> {
 
         if (newImp > oldImp) {
           final diff = newImp - oldImp;
-          _triggerNotification('📊 Daily PoP Sync: +$diff verified impressions logged from auto screens!');
+          _triggerNotification('📊 Daily PoP Sync: +$diff verified impressions logged from display screens!');
         }
         setState(() => analytics = newStats);
       }
@@ -167,7 +167,7 @@ class _AdmobiticsHomeScreenState extends State<AdmobiticsHomeScreen> {
       );
 
       if (res.statusCode == 201) {
-        _triggerNotification('🚀 Campaign "$name" booked and published to auto fleet loops!');
+        _triggerNotification('🚀 Campaign "$name" booked and published to screen fleet loops!');
         fetchData();
       } else {
         _showErrorDialog('Failed to book campaign. Status code: ${res.statusCode}');
@@ -266,7 +266,7 @@ class _AdmobiticsHomeScreenState extends State<AdmobiticsHomeScreen> {
                     onChanged: (v) => setDlgState(() => selectedAdvId = v),
                   ),
                 const SizedBox(height: 16),
-                Text('Share of Voice (SOV): $sov% of 2-minute loop', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+                Text('Share of Voice (SOV): $sov% of screen loop', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
                 Slider(
                   min: 10,
                   max: 100,
@@ -279,7 +279,7 @@ class _AdmobiticsHomeScreenState extends State<AdmobiticsHomeScreen> {
                   controller: creativeCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Video Creative Asset (1080p MP4)',
-                    helperText: 'Auto-cached locally on auto screens with zero-internet dependency',
+                    helperText: 'Auto-cached locally on display screens with zero-internet dependency',
                   ),
                 ),
               ],
@@ -306,7 +306,7 @@ class _AdmobiticsHomeScreenState extends State<AdmobiticsHomeScreen> {
                   );
                 }
               },
-              child: const Text('Publish to Auto Fleet', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              child: const Text('Publish to Screen Fleet', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             ),
           ],
         ),
@@ -328,10 +328,10 @@ class _AdmobiticsHomeScreenState extends State<AdmobiticsHomeScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0xFF2563EB)),
               ),
-              child: const Text('ADMOBITICS', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+              child: const Text('HINOPT', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
             ),
             const SizedBox(width: 12),
-            const Text('Auto Media Operations', style: TextStyle(fontSize: 16)),
+            const Text('Business Ads Operations', style: TextStyle(fontSize: 16)),
           ],
         ),
         actions: [
@@ -362,7 +362,7 @@ class _AdmobiticsHomeScreenState extends State<AdmobiticsHomeScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Partnership Banner
+                  // White-Label Banner
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -376,7 +376,7 @@ class _AdmobiticsHomeScreenState extends State<AdmobiticsHomeScreen> {
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Admobitics Auto Fleet: 100% of commercial ad revenues retained. Powered by HINOPT offline-first display player technology.',
+                            'Digital Signage Operations Portal: 100% of commercial ad revenues retained by screen operators. Powered by HINOPT display player technology.',
                             style: TextStyle(fontSize: 12, color: Colors.blueAccent),
                           ),
                         ),
@@ -456,7 +456,7 @@ class _AdmobiticsHomeScreenState extends State<AdmobiticsHomeScreen> {
               SizedBox(height: 12),
               Text('Zero Active Commercial Campaigns', style: TextStyle(fontWeight: FontWeight.bold)),
               SizedBox(height: 4),
-              Text('Clean database state. Click "Book Campaign" to schedule local advertisers.',
+              Text('Clean database state. Click "Book Campaign" to schedule commercial advertisers.',
                   style: TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
@@ -487,7 +487,7 @@ class _AdmobiticsHomeScreenState extends State<AdmobiticsHomeScreen> {
                 const SizedBox(height: 4),
                 Text('Flight: ${DateFormat('dd MMM').format(start)} – ${DateFormat('dd MMM yyyy').format(end)}',
                     style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                Text('Share of Voice: ${c['share_of_voice_percent'] ?? 25}% of auto loop',
+                Text('Share of Voice: ${c['share_of_voice_percent'] ?? 25}% of screen loop',
                     style: const TextStyle(fontSize: 11, color: Color(0xFF0D9488))),
               ],
             ),
@@ -518,7 +518,7 @@ class _AdmobiticsHomeScreenState extends State<AdmobiticsHomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Admobitics Fleet Live Alerts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text('Fleet Live Alerts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 if (notifications.isNotEmpty)
                   TextButton(
                     onPressed: () => setState(() => notifications.clear()),

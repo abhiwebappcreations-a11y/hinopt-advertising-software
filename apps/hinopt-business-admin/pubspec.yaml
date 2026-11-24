@@ -1,5 +1,5 @@
-name: admobitics_business_admin
-description: "Admobitics Advertising Operations & Manifest Portal (Android & Windows Desktop)"
+name: hinopt_business_admin
+description: "HINOPT Business Operations & Advertising Admin (White-Label Generic Portal for Android & Windows Desktop)"
 publish_to: 'none'
 version: 1.0.0+1
 

@@ -12,7 +12,7 @@ class StorageService {
     const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID;
     const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
     const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
-    this.bucketName = process.env.CLOUDFLARE_R2_BUCKET || 'admobitics-creatives';
+    this.bucketName = process.env.CLOUDFLARE_R2_BUCKET || 'hinopt-media-creatives';
     this.publicCdnBase = process.env.CDN_BASE_URL || 'https://cdn.hinopt.com/media';
 
     if (accountId && accessKeyId && secretAccessKey) {

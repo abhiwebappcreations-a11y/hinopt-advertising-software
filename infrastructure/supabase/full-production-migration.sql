@@ -137,6 +137,14 @@ ALTER TABLE ads_campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ads_creatives ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ads_proof_of_play ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if re-running script
+DROP POLICY IF EXISTS "hinopt_tenants_policy" ON hinopt_tenants;
+DROP POLICY IF EXISTS "hinopt_screens_policy" ON hinopt_screens;
+DROP POLICY IF EXISTS "ads_advertisers_policy" ON ads_advertisers;
+DROP POLICY IF EXISTS "ads_campaigns_policy" ON ads_campaigns;
+DROP POLICY IF EXISTS "ads_creatives_policy" ON ads_creatives;
+DROP POLICY IF EXISTS "ads_proof_of_play_policy" ON ads_proof_of_play;
+
 -- Allow read/write for backend API operations
 CREATE POLICY "hinopt_tenants_policy" ON hinopt_tenants FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "hinopt_screens_policy" ON hinopt_screens FOR ALL USING (true) WITH CHECK (true);
@@ -144,3 +152,13 @@ CREATE POLICY "ads_advertisers_policy" ON ads_advertisers FOR ALL USING (true) W
 CREATE POLICY "ads_campaigns_policy" ON ads_campaigns FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "ads_creatives_policy" ON ads_creatives FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "ads_proof_of_play_policy" ON ads_proof_of_play FOR ALL USING (true) WITH CHECK (true);
+
+-- ----------------------------------------------------------------------------
+-- 9. Grant schema permissions to anon, authenticated, and service_role
+-- ----------------------------------------------------------------------------
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;

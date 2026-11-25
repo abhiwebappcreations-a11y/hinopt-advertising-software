@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -330,6 +332,31 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
     }
   }
 
+  Future<String?> _uploadVideoToSupabase(File file, String fileName) async {
+    try {
+      final bytes = await file.readAsBytes();
+      final safeName = '${DateTime.now().millisecondsSinceEpoch}_${fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_')}';
+      final uploadUrl = 'https://yqmczojypjzsvbngipwd.supabase.co/storage/v1/object/hinopt-media/$safeName';
+      final res = await http.post(
+        Uri.parse(uploadUrl),
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': 'Bearer $supabaseKey',
+          'Content-Type': 'video/mp4',
+        },
+        body: bytes,
+      );
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return 'https://yqmczojypjzsvbngipwd.supabase.co/storage/v1/object/public/hinopt-media/$safeName';
+      } else {
+        _showErrorDialog('Video upload failed (${res.statusCode}). Make sure Supabase bucket "hinopt-media" is created.\n${res.body}');
+      }
+    } catch (e) {
+      _showErrorDialog('Upload error: $e');
+    }
+    return null;
+  }
+
   Future<void> bookCampaign({
     required String name,
     required String advertiserId,
@@ -337,22 +364,21 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
     required DateTime flightEnd,
     required int sovPercent,
     required String creativeName,
+    File? selectedVideoFile,
   }) async {
     try {
-      final assets = creativeName.isNotEmpty
-          ? [
-              {
-                'id': 'asset-${DateTime.now().millisecondsSinceEpoch}',
-                'campaign_id': 'pending',
-                'name': creativeName,
-                'media_type': 'VIDEO_MP4',
-                'file_size_bytes': 15000000,
-                'duration_seconds': 15,
-                'sha256_checksum': 'b7f32095f9c636f8634e0499e28f3a3bf29f79e564940f959f63567b545d9e5f',
-                'storage_url': 'https://cdn.hinopt.com/media/$creativeName',
-              }
-            ]
-          : [];
+      String finalStorageUrl = creativeName.startsWith('http')
+          ? creativeName
+          : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+      int fileSizeBytes = 15000000;
+
+      if (selectedVideoFile != null) {
+        _triggerNotification('⏳ Uploading video "$creativeName" to Supabase Storage...');
+        final uploadedUrl = await _uploadVideoToSupabase(selectedVideoFile, creativeName);
+        if (uploadedUrl == null) return;
+        finalStorageUrl = uploadedUrl;
+        fileSizeBytes = await selectedVideoFile.length();
+      }
 
       final res = await http.post(
         Uri.parse('$supabaseUrl/ads_campaigns'),
@@ -378,10 +404,10 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
               'campaign_id': campId,
               'name': creativeName,
               'media_type': 'VIDEO_MP4',
-              'file_size_bytes': 15000000,
+              'file_size_bytes': fileSizeBytes,
               'duration_seconds': 15,
               'sha256_checksum': 'b7f32095f9c636f8634e0499e28f3a3bf29f79e564940f959f63567b545d9e5f',
-              'storage_url': creativeName.startsWith('http') ? creativeName : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+              'storage_url': finalStorageUrl,
             }),
           );
         }
@@ -438,6 +464,7 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
     int sov = 25;
     DateTime start = DateTime.now();
     DateTime end = DateTime.now().add(const Duration(days: 30));
+    File? pickedVideoFile;
 
     showDialog(
       context: context,
@@ -492,12 +519,30 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
                   value: sov.toDouble(),
                   onChanged: (v) => setDlgState(() => sov = v.toInt()),
                 ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D9488)),
+                  icon: const Icon(Icons.video_file, color: Colors.white),
+                  label: Text(
+                    pickedVideoFile != null ? 'Selected: ${creativeCtrl.text}' : 'Import Video File (.mp4)',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  onPressed: () async {
+                    final result = await FilePicker.platform.pickFiles(type: FileType.video);
+                    if (result != null && result.files.single.path != null) {
+                      setDlgState(() {
+                        pickedVideoFile = File(result.files.single.path!);
+                        creativeCtrl.text = result.files.single.name;
+                      });
+                    }
+                  },
+                ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: creativeCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'Video Creative Asset (1080p MP4)',
-                    helperText: 'Auto-cached locally on display screens with zero-internet dependency',
+                    labelText: 'Selected Video Name or Direct MP4 URL',
+                    helperText: 'Pick an MP4 file above or paste an https://...mp4 video URL',
                   ),
                 ),
               ],
@@ -521,6 +566,7 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
                     flightEnd: end,
                     sovPercent: sov,
                     creativeName: creativeCtrl.text,
+                    selectedVideoFile: pickedVideoFile,
                   );
                 }
               },

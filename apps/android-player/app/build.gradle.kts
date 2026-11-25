@@ -62,4 +62,7 @@ dependencies {
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
+
+    // QR Code Generation
+    implementation("com.google.zxing:core:3.5.3")
 }

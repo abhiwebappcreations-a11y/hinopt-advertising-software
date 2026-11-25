@@ -11,11 +11,52 @@
         android:id="@+id/playerView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:visibility="gone"
         app:use_controller="false"
         app:surface_type="surface_view"
         app:resize_mode="fill" />
 
-    <!-- Neutral Pairing Screen Overlay (Shown when un-enrolled; Zero Demo Data) -->
+    <!-- Connected Empty State (Shown when Connected to Client Admin with 0 Ads) -->
+    <LinearLayout
+        android:id="@+id/emptyAdsOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:background="@color/hinopt_dark"
+        android:visibility="gone"
+        android:padding="32dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="HINOPT"
+            android:textColor="@color/hinopt_gold"
+            android:textSize="38sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.12" />
+
+        <TextView
+            android:id="@+id/tvConnectedScreenName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Screen Connected"
+            android:textColor="#4ADE80"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No ads scheduled yet.\nAdd ads in Client Business Admin to view on this screen."
+            android:textColor="@color/hinopt_gray"
+            android:textSize="16sp"
+            android:gravity="center"
+            android:layout_marginTop="12dp" />
+    </LinearLayout>
+
+    <!-- Onboarding Overlay: License Key Entry -> HINOPT Approval -> QR Scan -->
     <LinearLayout
         android:id="@+id/pairingOverlay"
         android:layout_width="match_parent"
@@ -31,54 +72,142 @@
             android:layout_height="wrap_content"
             android:text="HINOPT"
             android:textColor="@color/hinopt_gold"
-            android:textSize="42sp"
+            android:textSize="40sp"
             android:textStyle="bold"
             android:letterSpacing="0.1" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Automotive Digital Signage Kiosk"
+            android:text="Client-Owned Digital Signage Setup"
             android:textColor="@color/hinopt_gray"
-            android:textSize="18sp"
-            android:layout_marginTop="8dp" />
+            android:textSize="16sp"
+            android:layout_marginTop="4dp" />
 
-        <View
-            android:layout_width="120dp"
-            android:layout_height="2dp"
-            android:background="@color/hinopt_navy"
-            android:layout_marginVertical="24dp" />
+        <!-- Stage 1: License Key + Screen Name Input -->
+        <LinearLayout
+            android:id="@+id/licenseEntryGroup"
+            android:layout_width="420dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="24dp"
+            android:visibility="gone">
 
-        <TextView
+            <EditText
+                android:id="@+id/etLicenseKey"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter Client License Key (e.g. HNPT-XXXX-XXXX)"
+                android:textColor="@color/white"
+                android:textColorHint="#94A3B8"
+                android:background="#1E293B"
+                android:padding="14dp"
+                android:inputType="textCapCharacters" />
+
+            <EditText
+                android:id="@+id/etScreenName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter Screen Name (e.g. Auto #01 - HITEC City)"
+                android:textColor="@color/white"
+                android:textColorHint="#94A3B8"
+                android:background="#1E293B"
+                android:padding="14dp"
+                android:layout_marginTop="12dp" />
+
+            <Button
+                android:id="@+id/btnSubmitLicense"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="Submit &amp; Request HINOPT Approval"
+                android:textStyle="bold"
+                android:backgroundTint="@color/hinopt_gold"
+                android:textColor="@color/black"
+                android:layout_marginTop="16dp" />
+        </LinearLayout>
+
+        <!-- Stage 2: Waiting for HINOPT Approval -->
+        <LinearLayout
+            android:id="@+id/waitingApprovalGroup"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/pairing_instruction"
-            android:textColor="@color/white"
-            android:textSize="16sp" />
+            android:gravity="center"
+            android:orientation="vertical"
+            android:layout_marginTop="28dp"
+            android:visibility="gone">
 
-        <!-- 6-Digit Screen Activation Code Display -->
-        <TextView
-            android:id="@+id/tvActivationCode"
+            <ProgressBar
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:indeterminateTint="@color/hinopt_gold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Waiting for HINOPT Approval..."
+                android:textColor="@color/hinopt_gold"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:layout_marginTop="16dp" />
+
+            <TextView
+                android:id="@+id/tvPendingInfo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Please confirm this device in HINOPT Super-Admin."
+                android:textColor="@color/hinopt_gray"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+        <!-- Stage 3: Approved -> Display QR Code to Scan in Client Admin -->
+        <LinearLayout
+            android:id="@+id/qrScanGroup"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="A9X4B2"
-            android:textColor="@color/hinopt_gold"
-            android:textSize="56sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.25"
-            android:background="#1E293B"
-            android:paddingHorizontal="48dp"
-            android:paddingVertical="12dp"
-            android:layout_marginTop="20dp" />
+            android:gravity="center"
+            android:orientation="vertical"
+            android:layout_marginTop="20dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Approved! Scan QR in Client Business Admin"
+                android:textColor="#4ADE80"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/ivQrCode"
+                android:layout_width="220dp"
+                android:layout_height="220dp"
+                android:background="@color/white"
+                android:padding="10dp"
+                android:layout_marginTop="16dp"
+                android:contentDescription="QR Code to connect screen" />
+
+            <TextView
+                android:id="@+id/tvActivationCode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="QR-XXXXXX"
+                android:textColor="@color/hinopt_gold"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.15"
+                android:layout_marginTop="12dp" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/tvScreenStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/status_unregistered"
+            android:text="Connected to HINOPT Cloud"
             android:textColor="@color/hinopt_gray"
-            android:textSize="14sp"
-            android:layout_marginTop="24dp" />
+            android:textSize="12sp"
+            android:layout_marginTop="20dp" />
 
     </LinearLayout>
 

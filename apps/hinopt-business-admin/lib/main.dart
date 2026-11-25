@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
@@ -57,6 +58,9 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
 
   List<dynamic> campaigns = [];
   List<dynamic> advertisers = [];
+  List<dynamic> tenants = [];
+  List<dynamic> screens = [];
+  final Set<String> _promptedScreenIds = {};
   Map<String, dynamic> analytics = {
     'total_impressions': 0,
     'total_seconds_played': 0,
@@ -105,6 +109,23 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
       if (statRes.statusCode == 200) {
         analytics = _aggregatePop(jsonDecode(statRes.body) as List<dynamic>);
       }
+
+      final tRes = await http.get(
+        Uri.parse('$supabaseUrl/hinopt_tenants?select=*&order=created_at.desc'),
+        headers: _headers,
+      );
+      if (tRes.statusCode == 200) {
+        tenants = jsonDecode(tRes.body) as List<dynamic>;
+      }
+
+      final sRes = await http.get(
+        Uri.parse('$supabaseUrl/hinopt_screens?select=*&order=created_at.desc'),
+        headers: _headers,
+      );
+      if (sRes.statusCode == 200) {
+        screens = jsonDecode(sRes.body) as List<dynamic>;
+        _checkApprovedScreensForPopup();
+      }
     } catch (e) {
       debugPrint("Supabase Ads API error: $e");
     } finally {
@@ -145,7 +166,122 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
         }
         setState(() => analytics = newStats);
       }
+
+      final sRes = await http.get(
+        Uri.parse('$supabaseUrl/hinopt_screens?select=*&order=created_at.desc'),
+        headers: _headers,
+      );
+      if (sRes.statusCode == 200) {
+        setState(() => screens = jsonDecode(sRes.body) as List<dynamic>);
+        _checkApprovedScreensForPopup();
+      }
     } catch (_) {}
+  }
+
+  void _checkApprovedScreensForPopup() {
+    if (!mounted) return;
+    for (final s in screens) {
+      final sid = s['id'].toString();
+      if (s['enrollment_status'] == 'APPROVED_READY_TO_SCAN' && !_promptedScreenIds.contains(sid)) {
+        _promptedScreenIds.add(sid);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _showConnectScreenPopup(s);
+        });
+        break;
+      }
+    }
+  }
+
+  Future<void> _connectScreen(String screenId, String screenName) async {
+    final res = await http.patch(
+      Uri.parse('$supabaseUrl/hinopt_screens?id=eq.$screenId'),
+      headers: _headers,
+      body: jsonEncode({
+        'enrollment_status': 'CONNECTED',
+        'activation_code': null,
+      }),
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      _triggerNotification('✅ Screen "$screenName" connected! Ready to receive ad campaigns.');
+      fetchData();
+    } else {
+      _showErrorDialog('Failed to connect screen (${res.statusCode}): ${res.body}');
+    }
+  }
+
+  void _showConnectScreenPopup(Map<String, dynamic> screen) {
+    final sName = screen['screen_name'] ?? 'Unnamed Screen';
+    final qrCode = screen['activation_code'] ?? '';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.qr_code_scanner, color: Color(0xFF0D9488)),
+            SizedBox(width: 8),
+            Expanded(child: Text('Connect Approved Screen?')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('HINOPT approved your screen "$sName"!', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('QR Token: $qrCode', style: const TextStyle(color: Colors.tealAccent, fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text('Confirm to link this screen to your Client Admin panel.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Later')),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D9488)),
+            icon: const Icon(Icons.link, color: Colors.white),
+            label: const Text('Connect Screen', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _connectScreen(screen['id'].toString(), sName.toString());
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showManualScanDialog() {
+    final qrCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Scan / Enter Screen QR Code'),
+        content: TextField(
+          controller: qrCtrl,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(
+            labelText: 'QR Token (e.g. QR-A9X4B2)',
+            hintText: 'QR-XXXXXX',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              final token = qrCtrl.text.trim().toUpperCase();
+              final match = screens.where((s) => (s['activation_code'] ?? '').toString().toUpperCase() == token).toList();
+              Navigator.pop(ctx);
+              if (match.isNotEmpty) {
+                _showConnectScreenPopup(match.first);
+              } else {
+                _showErrorDialog('No HINOPT-approved screen found with QR token "$token".');
+              }
+            },
+            child: const Text('Find & Connect'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _triggerNotification(String message) {
@@ -388,6 +524,7 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
           ],
         ),
         actions: [
+          IconButton(icon: const Icon(Icons.qr_code_scanner), onPressed: _showManualScanDialog, tooltip: 'Scan / Connect Screen QR'),
           IconButton(icon: const Icon(Icons.refresh), onPressed: fetchData, tooltip: 'Refresh Data'),
           IconButton(
             icon: Badge(
@@ -438,6 +575,14 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
                   ),
                   const SizedBox(height: 16),
 
+                  // Client License Key & APK Card
+                  _buildLicenseKeyCard(),
+                  const SizedBox(height: 16),
+
+                  // Connected Screens Summary
+                  _buildConnectedScreensSection(),
+                  const SizedBox(height: 16),
+
                   // Verified Proof-of-Play Metrics
                   const Text('Verified Proof-of-Play (PoP) Telemetry', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
@@ -457,6 +602,114 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildLicenseKeyCard() {
+    if (tenants.isEmpty) {
+      return Card(
+        child: ListTile(
+          leading: const Icon(Icons.vpn_key, color: Colors.amber),
+          title: const Text('Waiting for HINOPT License Key'),
+          subtitle: const Text('Ask HINOPT Super-Admin to register your agency and issue a License Key.'),
+        ),
+      );
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Your HINOPT License Keys & Player APK', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                TextButton.icon(
+                  onPressed: _showManualScanDialog,
+                  icon: const Icon(Icons.qr_code_scanner, size: 16),
+                  label: const Text('Scan Screen QR'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            ...tenants.map((t) {
+              final licKey = t['tenant_id'] ?? 'PENDING';
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text('${t['name']}: $licKey (Max ${t['max_screens']} screens)',
+                          style: const TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold)),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 18, color: Colors.blueAccent),
+                      tooltip: 'Copy License Key',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: licKey.toString()));
+                        _triggerNotification('📋 Copied License Key: $licKey');
+                      },
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const Text('Install bin/hinopt-player-v1.0.0.apk on your screens and enter the License Key above.',
+                style: TextStyle(fontSize: 11, color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConnectedScreensSection() {
+    final connected = screens.where((s) => s['enrollment_status'] == 'CONNECTED' || s['enrollment_status'] == 'ACTIVE').toList();
+    final readyToScan = screens.where((s) => s['enrollment_status'] == 'APPROVED_READY_TO_SCAN').toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Your Display Screens', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('${connected.length} connected', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (readyToScan.isNotEmpty)
+          ...readyToScan.map((s) => Card(
+                color: const Color(0xFF0F766E).withOpacity(0.35),
+                child: ListTile(
+                  leading: const Icon(Icons.qr_code_2, color: Colors.tealAccent),
+                  title: Text('${s['screen_name']} (Approved by HINOPT)'),
+                  subtitle: Text('QR Token: ${s['activation_code']}'),
+                  trailing: ElevatedButton(
+                    onPressed: () => _showConnectScreenPopup(s),
+                    child: const Text('Connect'),
+                  ),
+                ),
+              )),
+        if (connected.isEmpty && readyToScan.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(
+                child: Text('No screens connected yet. Install Player APK, enter your License Key, and scan QR after HINOPT approval.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey), textAlign: TextAlign.center),
+              ),
+            ),
+          )
+        else
+          ...connected.map((s) => Card(
+                child: ListTile(
+                  leading: const Icon(Icons.tv, color: Colors.greenAccent),
+                  title: Text(s['screen_name'] ?? 'Screen'),
+                  subtitle: Text('Model: ${s['hardware_model']} • Status: CONNECTED'),
+                ),
+              )),
+      ],
     );
   }
 

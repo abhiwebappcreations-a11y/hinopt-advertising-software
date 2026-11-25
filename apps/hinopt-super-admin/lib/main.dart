@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
@@ -115,6 +117,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         final now = DateTime.now().millisecondsSinceEpoch;
 
         for (var s in updated) {
+          if (s['enrollment_status'] == 'PENDING_APPROVAL') {
+            final msg = '🔔 Approval Request: Screen "${s['screen_name']}" is waiting for HINOPT confirmation!';
+            if (!notifications.contains(msg)) {
+              _triggerNotification(msg);
+            }
+          }
           final lastHb = s['last_heartbeat_at'];
           if (lastHb != null) {
             final hbTime = DateTime.parse(lastHb).millisecondsSinceEpoch;
@@ -211,11 +219,47 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     }
   }
 
+  String _generateRandomCode(int len) {
+    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    final rnd = Random();
+    return List.generate(len, (_) => chars[rnd.nextInt(chars.length)]).join();
+  }
+
+  Future<void> approveScreen(String id, String name) async {
+    final qrToken = 'QR-${_generateRandomCode(6)}';
+    final res = await http.patch(
+      Uri.parse('$supabaseUrl/hinopt_screens?id=eq.$id'),
+      headers: _headers,
+      body: jsonEncode({
+        'enrollment_status': 'APPROVED_READY_TO_SCAN',
+        'activation_code': qrToken,
+      }),
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      _triggerNotification('✅ Approved "$name"! Screen now displays QR code ($qrToken) for Client Admin.');
+      fetchData();
+    } else {
+      _showErrorDialog('Approval failed (${res.statusCode}): ${res.body}');
+    }
+  }
+
+  Future<void> rejectScreen(String id, String name) async {
+    await http.patch(
+      Uri.parse('$supabaseUrl/hinopt_screens?id=eq.$id'),
+      headers: _headers,
+      body: jsonEncode({'enrollment_status': 'REVOKED'}),
+    );
+    _triggerNotification('❌ Rejected device "$name".');
+    fetchData();
+  }
+
   Future<void> createTenant(String name, String email, int quota) async {
+    final licenseKey = 'HNPT-${_generateRandomCode(4)}-${_generateRandomCode(4)}';
     final res = await http.post(
       Uri.parse('$supabaseUrl/hinopt_tenants'),
       headers: _headers,
       body: jsonEncode({
+        'tenant_id': licenseKey,
         'name': name,
         'contact_email': email,
         'max_screens': quota,
@@ -223,7 +267,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       }),
     );
     if (res.statusCode == 201 || res.statusCode == 200) {
-      _triggerNotification('✅ Client "$name" registered in Supabase Cloud!');
+      _triggerNotification('✅ Client "$name" registered! License Key: $licenseKey');
     } else {
       _showErrorDialog('Failed to create tenant (${res.statusCode}): ${res.body}');
     }
@@ -476,7 +520,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   _buildTenantsSection(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  _buildPendingApprovalsSection(),
+                  const SizedBox(height: 8),
 
                   // Screen Fleet Table Section
                   Row(
@@ -569,13 +615,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           const SizedBox(width: 8),
           ...tenants.map((t) {
             final isSel = selectedTenantId == t['id'];
+            final licKey = t['tenant_id'] ?? 'NO-KEY';
             return Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text('${t['name']} (Max: ${t['max_screens']})'),
-                selected: isSel,
-                onSelected: (_) {
-                  setState(() => selectedTenantId = t['id']);
+              child: ActionChip(
+                avatar: Icon(isSel ? Icons.check_circle : Icons.vpn_key, size: 16, color: Colors.amber),
+                backgroundColor: isSel ? const Color(0xFFD97706).withOpacity(0.25) : null,
+                label: Text('${t['name']} • Key: $licKey (Tap to copy)'),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: licKey.toString()));
+                  setState(() => selectedTenantId = isSel ? null : t['id']);
+                  _triggerNotification('📋 Copied License Key $licKey for ${t['name']}');
                   fetchData();
                 },
               ),
@@ -583,6 +633,55 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           }),
         ],
       ),
+    );
+  }
+
+  Widget _buildPendingApprovalsSection() {
+    final pending = screens.where((s) => s['enrollment_status'] == 'PENDING_APPROVAL').toList();
+    if (pending.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.notifications_active, color: Colors.amber, size: 20),
+            const SizedBox(width: 8),
+            Text('Pending Screen Approvals (${pending.length})',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.amber)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...pending.map((s) => Card(
+              color: const Color(0xFF451A03).withOpacity(0.5),
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFD97706),
+                  child: Icon(Icons.pending_actions, color: Colors.black),
+                ),
+                title: Text(s['screen_name'] ?? 'Unnamed Screen', style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('Model: ${s['hardware_model']} • ID: ${s['android_id'] ?? 'N/A'}',
+                    style: const TextStyle(fontSize: 12, color: Colors.amberAccent)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton(
+                      onPressed: () => rejectScreen(s['id'], s['screen_name']),
+                      child: const Text('Reject', style: TextStyle(color: Colors.redAccent)),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                      icon: const Icon(Icons.check, size: 16, color: Colors.white),
+                      label: const Text('Accept Device', style: TextStyle(color: Colors.white)),
+                      onPressed: () => approveScreen(s['id'], s['screen_name']),
+                    ),
+                  ],
+                ),
+              ),
+            )),
+        const SizedBox(height: 16),
+      ],
     );
   }
 

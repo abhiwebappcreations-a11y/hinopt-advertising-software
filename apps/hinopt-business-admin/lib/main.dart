@@ -367,9 +367,12 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
     File? selectedVideoFile,
   }) async {
     try {
-      String finalStorageUrl = creativeName.startsWith('http')
-          ? creativeName
-          : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+      if (selectedVideoFile == null && !creativeName.startsWith('http')) {
+        _showErrorDialog('Please select an MP4 video file using "Import Video File (.mp4)" or paste a valid https:// video URL.');
+        return;
+      }
+
+      String finalStorageUrl = creativeName;
       int fileSizeBytes = 15000000;
 
       if (selectedVideoFile != null) {
@@ -891,6 +894,13 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
     );
   }
 
+  Future<void> deleteCampaign(String id, String name) async {
+    await http.delete(Uri.parse('$supabaseUrl/ads_creatives?campaign_id=eq.$id'), headers: _headers);
+    await http.delete(Uri.parse('$supabaseUrl/ads_campaigns?id=eq.$id'), headers: _headers);
+    _triggerNotification('🗑️ Campaign "$name" deleted. Screens will update within 10 seconds.');
+    fetchData();
+  }
+
   Widget _buildCampaignsList() {
     if (campaigns.isEmpty) {
       return Card(
@@ -937,13 +947,23 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
                     style: const TextStyle(fontSize: 11, color: Color(0xFF0D9488))),
               ],
             ),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Text('ACTIVE', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11)),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text('ACTIVE', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11)),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  tooltip: 'Delete Campaign',
+                  onPressed: () => deleteCampaign(c['id'].toString(), c['name'].toString()),
+                ),
+              ],
             ),
           ),
         );

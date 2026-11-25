@@ -428,9 +428,16 @@ class MainActivity : AppCompatActivity() {
                                 )
                             }
                         }
+                        db.playlistItemDao().clearAll()
                         if (syncedItems.isNotEmpty()) {
-                            db.playlistItemDao().clearAll()
                             db.playlistItemDao().insertAll(syncedItems)
+                        }
+                        // Delete any locally cached MP4 files no longer in active campaigns
+                        val activeIds = syncedItems.map { "${it.asset_id}.mp4" }.toSet()
+                        mediaDir.listFiles()?.forEach { file ->
+                            if (!activeIds.contains(file.name)) {
+                                file.delete()
+                            }
                         }
                     }
                 } catch (e: Exception) {
@@ -490,7 +497,7 @@ class MainActivity : AppCompatActivity() {
     private fun showOwnerPinDialog() {
         val pinInput = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-            hint = "Enter 6-digit Owner PIN (Default: 202600)"
+            hint = "Enter Owner PIN"
         }
 
         AlertDialog.Builder(this)

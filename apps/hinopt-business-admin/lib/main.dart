@@ -60,6 +60,9 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
   List<dynamic> advertisers = [];
   List<dynamic> tenants = [];
   List<dynamic> screens = [];
+  Map<String, dynamic>? activeTenant;
+  final TextEditingController _loginKeyCtrl = TextEditingController();
+  bool isAuthenticating = false;
   final Set<String> _promptedScreenIds = {};
   Map<String, dynamic> analytics = {
     'total_impressions': 0,
@@ -73,8 +76,40 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
   @override
   void initState() {
     super.initState();
-    fetchData();
-    pollTimer = Timer.periodic(const Duration(seconds: 20), (_) => checkForAnalyticsSync());
+    pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (activeTenant != null) checkForAnalyticsSync();
+    });
+  }
+
+  Future<void> loginWithLicenseKey(String key) async {
+    final cleanKey = key.trim().toUpperCase();
+    if (cleanKey.isEmpty) return;
+    setState(() => isAuthenticating = true);
+    try {
+      final res = await http.get(
+        Uri.parse('$supabaseUrl/hinopt_tenants?tenant_id=eq.$cleanKey&select=*'),
+        headers: _headers,
+      );
+      if (res.statusCode == 200) {
+        final list = jsonDecode(res.body) as List<dynamic>;
+        if (list.isNotEmpty) {
+          setState(() {
+            activeTenant = list.first as Map<String, dynamic>;
+            tenants = list;
+          });
+          await fetchData();
+          _triggerNotification('✅ Connected to HINOPT as ${activeTenant!['name']}');
+        } else {
+          _showErrorDialog('Invalid License Key "$cleanKey". Check HINOPT Super-Admin.');
+        }
+      } else {
+        _showErrorDialog('Connection error (${res.statusCode})');
+      }
+    } catch (e) {
+      _showErrorDialog(e.toString());
+    } finally {
+      setState(() => isAuthenticating = false);
+    }
   }
 
   @override
@@ -110,18 +145,11 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
         analytics = _aggregatePop(jsonDecode(statRes.body) as List<dynamic>);
       }
 
-      final tRes = await http.get(
-        Uri.parse('$supabaseUrl/hinopt_tenants?select=*&order=created_at.desc'),
-        headers: _headers,
-      );
-      if (tRes.statusCode == 200) {
-        tenants = jsonDecode(tRes.body) as List<dynamic>;
-      }
-
-      final sRes = await http.get(
-        Uri.parse('$supabaseUrl/hinopt_screens?select=*&order=created_at.desc'),
-        headers: _headers,
-      );
+      final tUuid = activeTenant?['id'];
+      final sUrl = tUuid != null
+          ? '$supabaseUrl/hinopt_screens?tenant_id=eq.$tUuid&select=*&order=created_at.desc'
+          : '$supabaseUrl/hinopt_screens?select=*&order=created_at.desc';
+      final sRes = await http.get(Uri.parse(sUrl), headers: _headers);
       if (sRes.statusCode == 200) {
         screens = jsonDecode(sRes.body) as List<dynamic>;
         _checkApprovedScreensForPopup();
@@ -167,10 +195,11 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
         setState(() => analytics = newStats);
       }
 
-      final sRes = await http.get(
-        Uri.parse('$supabaseUrl/hinopt_screens?select=*&order=created_at.desc'),
-        headers: _headers,
-      );
+      final tUuid = activeTenant?['id'];
+      final sUrl = tUuid != null
+          ? '$supabaseUrl/hinopt_screens?tenant_id=eq.$tUuid&select=*&order=created_at.desc'
+          : '$supabaseUrl/hinopt_screens?select=*&order=created_at.desc';
+      final sRes = await http.get(Uri.parse(sUrl), headers: _headers);
       if (sRes.statusCode == 200) {
         setState(() => screens = jsonDecode(sRes.body) as List<dynamic>);
         _checkApprovedScreensForPopup();
@@ -352,7 +381,7 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
               'file_size_bytes': 15000000,
               'duration_seconds': 15,
               'sha256_checksum': 'b7f32095f9c636f8634e0499e28f3a3bf29f79e564940f959f63567b545d9e5f',
-              'storage_url': 'https://cdn.hinopt.com/media/$creativeName',
+              'storage_url': creativeName.startsWith('http') ? creativeName : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
             }),
           );
         }
@@ -505,6 +534,59 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (activeTenant == null) {
+      return Scaffold(
+        body: Center(
+          child: Container(
+            width: 420,
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: const Color(0xFF111827),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFF1F2937)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.vpn_key, size: 48, color: Color(0xFF2563EB)),
+                const SizedBox(height: 16),
+                const Text('HINOPT Business Admin', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                const Text(
+                  'Enter the Client License Key issued by HINOPT Super-Admin to access your screens & campaigns.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _loginKeyCtrl,
+                  textCapitalization: TextCapitalization.characters,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 20, letterSpacing: 2, fontWeight: FontWeight.bold),
+                  decoration: const InputDecoration(
+                    hintText: 'HNPT-XXXX-XXXX',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB)),
+                    onPressed: isAuthenticating ? null : () => loginWithLicenseKey(_loginKeyCtrl.text),
+                    child: isAuthenticating
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text('Connect to HINOPT Cloud', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF111827),
@@ -520,12 +602,24 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
               child: const Text('HINOPT', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
             ),
             const SizedBox(width: 12),
-            const Text('Business Ads Operations', style: TextStyle(fontSize: 16)),
+            Expanded(
+              child: Text('${activeTenant!['name']} • Business Admin', style: const TextStyle(fontSize: 16), overflow: TextOverflow.ellipsis),
+            ),
           ],
         ),
         actions: [
           IconButton(icon: const Icon(Icons.qr_code_scanner), onPressed: _showManualScanDialog, tooltip: 'Scan / Connect Screen QR'),
           IconButton(icon: const Icon(Icons.refresh), onPressed: fetchData, tooltip: 'Refresh Data'),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Switch Client License',
+            onPressed: () => setState(() {
+              activeTenant = null;
+              screens = [];
+              campaigns = [];
+              _promptedScreenIds.clear();
+            }),
+          ),
           IconButton(
             icon: Badge(
               isLabelVisible: notifications.isNotEmpty,

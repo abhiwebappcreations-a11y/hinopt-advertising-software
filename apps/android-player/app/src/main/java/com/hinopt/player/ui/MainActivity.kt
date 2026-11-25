@@ -24,6 +24,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.hinopt.player.data.db.AppDatabase
+import com.hinopt.player.data.db.PlaylistItemEntity
 import com.hinopt.player.databinding.ActivityMainBinding
 import com.hinopt.player.player.PlaybackEngine
 import com.hinopt.player.security.TimeSecurityManager
@@ -358,22 +359,73 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadCachedPlaylistOrEmpty() {
-        lifecycleScope.launch(Dispatchers.IO) {
+        pollingJob?.cancel()
+        pollingJob = lifecycleScope.launch(Dispatchers.IO) {
             val db = AppDatabase.getInstance(this@MainActivity)
-            val items = db.playlistItemDao().getPlayableItems()
+            var lastCount = -1
 
-            withContext(Dispatchers.Main) {
-                if (items.isEmpty()) {
-                    binding.emptyAdsOverlay.visibility = View.VISIBLE
-                    binding.playerView.visibility = View.GONE
-                } else {
-                    binding.emptyAdsOverlay.visibility = View.GONE
-                    binding.playerView.visibility = View.VISIBLE
-                    if (playbackEngine == null) {
-                        playbackEngine = PlaybackEngine(this@MainActivity, binding.playerView, lifecycleScope)
+            while (true) {
+                try {
+                    val url = URL("$SUPABASE_URL/ads_campaigns?status=eq.ACTIVE&select=*,ads_creatives(*)")
+                    val conn = (url.openConnection() as HttpURLConnection).apply {
+                        requestMethod = "GET"
+                        connectTimeout = 5000
+                        readTimeout = 5000
+                        setRequestProperty("apikey", SUPABASE_KEY)
+                        setRequestProperty("Authorization", "Bearer $SUPABASE_KEY")
                     }
-                    playbackEngine?.submitPlaylist(items)
+                    if (conn.responseCode == 200) {
+                        val arr = JSONArray(conn.inputStream.bufferedReader().use { it.readText() })
+                        val syncedItems = mutableListOf<PlaylistItemEntity>()
+                        var seq = 0
+                        for (i in 0 until arr.length()) {
+                            val camp = arr.getJSONObject(i)
+                            val campId = camp.getString("id")
+                            val creatives = camp.optJSONArray("ads_creatives") ?: JSONArray()
+                            for (j in 0 until creatives.length()) {
+                                val cr = creatives.getJSONObject(j)
+                                syncedItems.add(
+                                    PlaylistItemEntity(
+                                        asset_id = cr.getString("id"),
+                                        campaign_id = campId,
+                                        local_path = "",
+                                        remote_url = cr.getString("storage_url"),
+                                        sha256 = cr.optString("sha256_checksum", ""),
+                                        duration_seconds = cr.optInt("duration_seconds", 15),
+                                        media_type = cr.optString("media_type", "VIDEO_MP4"),
+                                        audio_mode = cr.optString("audio_mode", "MUTED"),
+                                        sequence_order = seq++,
+                                        is_downloaded = false
+                                    )
+                                )
+                            }
+                        }
+                        if (syncedItems.isNotEmpty()) {
+                            db.playlistItemDao().insertAll(syncedItems)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Campaign sync poll retry: ${e.message}")
                 }
+
+                val items = db.playlistItemDao().getPlayableItems()
+                if (items.size != lastCount) {
+                    lastCount = items.size
+                    withContext(Dispatchers.Main) {
+                        if (items.isEmpty()) {
+                            binding.emptyAdsOverlay.visibility = View.VISIBLE
+                            binding.playerView.visibility = View.GONE
+                        } else {
+                            binding.emptyAdsOverlay.visibility = View.GONE
+                            binding.playerView.visibility = View.VISIBLE
+                            if (playbackEngine == null) {
+                                playbackEngine = PlaybackEngine(this@MainActivity, binding.playerView, lifecycleScope)
+                            }
+                            playbackEngine?.submitPlaylist(items)
+                        }
+                    }
+                }
+                delay(10_000L)
             }
         }
     }

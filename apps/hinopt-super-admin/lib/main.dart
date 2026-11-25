@@ -45,8 +45,15 @@ class AdminHomeScreen extends StatefulWidget {
 }
 
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
-  String baseUrl = 'http://localhost:8081/v1';
-  final String masterKey = 'hinopt_master_key_2026';
+  final String supabaseUrl = 'https://yqmczojypjzsvbngipwd.supabase.co/rest/v1';
+  final String supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxbWN6b2p5cGp6c3ZibmdpcHdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1MzY4ODcsImV4cCI6MjExMTExMjg4N30._B6VY5pwF7ODJyh5vh1rJ3GprIMkcAvNbxjLn5vt5BQ';
+
+  Map<String, String> get _headers => {
+    'apikey': supabaseKey,
+    'Authorization': 'Bearer $supabaseKey',
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation',
+  };
 
   List<dynamic> tenants = [];
   List<dynamic> screens = [];
@@ -73,25 +80,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     setState(() => isLoading = true);
     try {
       final tRes = await http.get(
-        Uri.parse('$baseUrl/tenants'),
-        headers: {'Authorization': 'Bearer $masterKey'},
+        Uri.parse('$supabaseUrl/hinopt_tenants?select=*&order=created_at.desc'),
+        headers: _headers,
       );
       if (tRes.statusCode == 200) {
-        tenants = jsonDecode(tRes.body)['tenants'] ?? [];
+        tenants = jsonDecode(tRes.body) as List<dynamic>;
       }
 
       final url = selectedTenantId == null
-          ? '$baseUrl/devices'
-          : '$baseUrl/devices?tenant_id=$selectedTenantId';
+          ? '$supabaseUrl/hinopt_screens?select=*&order=created_at.desc'
+          : '$supabaseUrl/hinopt_screens?tenant_id=eq.$selectedTenantId&select=*&order=created_at.desc';
       final sRes = await http.get(
         Uri.parse(url),
-        headers: {'Authorization': 'Bearer $masterKey'},
+        headers: _headers,
       );
       if (sRes.statusCode == 200) {
-        screens = jsonDecode(sRes.body)['screens'] ?? [];
+        screens = jsonDecode(sRes.body) as List<dynamic>;
       }
     } catch (e) {
-      debugPrint("API error: $e");
+      debugPrint("Supabase API error: $e");
     } finally {
       setState(() => isLoading = false);
     }
@@ -100,11 +107,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Future<void> checkForAlerts() async {
     try {
       final sRes = await http.get(
-        Uri.parse('$baseUrl/devices'),
-        headers: {'Authorization': 'Bearer $masterKey'},
+        Uri.parse('$supabaseUrl/hinopt_screens?select=*&order=created_at.desc'),
+        headers: _headers,
       );
       if (sRes.statusCode == 200) {
-        final List<dynamic> updated = jsonDecode(sRes.body)['screens'] ?? [];
+        final List<dynamic> updated = jsonDecode(sRes.body) as List<dynamic>;
         final now = DateTime.now().millisecondsSinceEpoch;
 
         for (var s in updated) {
@@ -150,26 +157,26 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   Future<void> preAuthorizeScreen(String code, String tenantId, String name, String tier, int days) async {
     try {
+      final expiry = DateTime.now().add(Duration(days: days)).toUtc().toIso8601String();
       final res = await http.post(
-        Uri.parse('$baseUrl/devices/pre-authorize'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $masterKey',
-        },
+        Uri.parse('$supabaseUrl/hinopt_screens'),
+        headers: _headers,
         body: jsonEncode({
           'activation_code': code.toUpperCase(),
           'tenant_id': tenantId,
+          'enrollment_status': 'PRE_AUTHORIZED',
           'screen_name': name,
+          'hardware_model': 'PENDING_DISCOVERY',
+          'serial_number': 'PENDING',
           'license_tier': tier,
-          'duration_days': days,
+          'license_expires_at': expiry,
         }),
       );
-      if (res.statusCode == 200) {
+      if (res.statusCode == 201 || res.statusCode == 200) {
         _triggerNotification('✅ Screen "$name" successfully pre-authorized with code $code');
         fetchData();
       } else {
-        final err = jsonDecode(res.body)['message'] ?? 'Authorization failed';
-        _showErrorDialog(err);
+        _showErrorDialog('Authorization failed (${res.statusCode}): ${res.body}');
       }
     } catch (e) {
       _showErrorDialog(e.toString());
@@ -194,9 +201,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
 
     if (confirm == true) {
-      await http.post(
-        Uri.parse('$baseUrl/devices/$id/revoke'),
-        headers: {'Authorization': 'Bearer $masterKey'},
+      await http.patch(
+        Uri.parse('$supabaseUrl/hinopt_screens?id=eq.$id'),
+        headers: _headers,
+        body: jsonEncode({'enrollment_status': 'REVOKED'}),
       );
       _triggerNotification('🔒 Screen "$name" has been revoked.');
       fetchData();
@@ -204,18 +212,21 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }
 
   Future<void> createTenant(String name, String email, int quota) async {
-    await http.post(
-      Uri.parse('$baseUrl/tenants'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $masterKey',
-      },
+    final res = await http.post(
+      Uri.parse('$supabaseUrl/hinopt_tenants'),
+      headers: _headers,
       body: jsonEncode({
         'name': name,
         'contact_email': email,
         'max_screens': quota,
+        'status': 'ACTIVE',
       }),
     );
+    if (res.statusCode == 201 || res.statusCode == 200) {
+      _triggerNotification('✅ Client "$name" registered in Supabase Cloud!');
+    } else {
+      _showErrorDialog('Failed to create tenant (${res.statusCode}): ${res.body}');
+    }
     fetchData();
   }
 

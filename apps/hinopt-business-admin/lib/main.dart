@@ -45,7 +45,15 @@ class BusinessHomeScreen extends StatefulWidget {
 }
 
 class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
-  String adsBaseUrl = 'http://localhost:8082/v1';
+  final String supabaseUrl = 'https://yqmczojypjzsvbngipwd.supabase.co/rest/v1';
+  final String supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxbWN6b2p5cGp6c3ZibmdpcHdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1MzY4ODcsImV4cCI6MjExMTExMjg4N30._B6VY5pwF7ODJyh5vh1rJ3GprIMkcAvNbxjLn5vt5BQ';
+
+  Map<String, String> get _headers => {
+    'apikey': supabaseKey,
+    'Authorization': 'Bearer $supabaseKey',
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation',
+  };
 
   List<dynamic> campaigns = [];
   List<dynamic> advertisers = [];
@@ -74,32 +82,60 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
   Future<void> fetchData() async {
     setState(() => isLoading = true);
     try {
-      final cRes = await http.get(Uri.parse('$adsBaseUrl/campaigns'));
+      final cRes = await http.get(
+        Uri.parse('$supabaseUrl/ads_campaigns?select=*,ads_creatives(*)&order=created_at.desc'),
+        headers: _headers,
+      );
       if (cRes.statusCode == 200) {
-        campaigns = jsonDecode(cRes.body)['campaigns'] ?? [];
+        campaigns = jsonDecode(cRes.body) as List<dynamic>;
       }
 
-      final aRes = await http.get(Uri.parse('$adsBaseUrl/advertisers'));
+      final aRes = await http.get(
+        Uri.parse('$supabaseUrl/ads_advertisers?select=*&order=created_at.desc'),
+        headers: _headers,
+      );
       if (aRes.statusCode == 200) {
-        advertisers = jsonDecode(aRes.body)['advertisers'] ?? [];
+        advertisers = jsonDecode(aRes.body) as List<dynamic>;
       }
 
-      final statRes = await http.get(Uri.parse('$adsBaseUrl/analytics/proof-of-play'));
+      final statRes = await http.get(
+        Uri.parse('$supabaseUrl/ads_proof_of_play?select=*'),
+        headers: _headers,
+      );
       if (statRes.statusCode == 200) {
-        analytics = jsonDecode(statRes.body);
+        analytics = _aggregatePop(jsonDecode(statRes.body) as List<dynamic>);
       }
     } catch (e) {
-      debugPrint("Ads API error: $e");
+      debugPrint("Supabase Ads API error: $e");
     } finally {
       setState(() => isLoading = false);
     }
   }
 
+  Map<String, dynamic> _aggregatePop(List<dynamic> rows) {
+    int imp = 0;
+    int secs = 0;
+    int interrupted = 0;
+    for (final r in rows) {
+      imp += (r['completed_impressions'] as num?)?.toInt() ?? 0;
+      secs += (r['total_seconds_played'] as num?)?.toInt() ?? 0;
+      interrupted += (r['interrupted_impressions'] as num?)?.toInt() ?? 0;
+    }
+    return {
+      'total_impressions': imp,
+      'total_seconds_played': secs,
+      'interrupted_impressions': interrupted,
+    };
+  }
+
   Future<void> checkForAnalyticsSync() async {
     try {
-      final statRes = await http.get(Uri.parse('$adsBaseUrl/analytics/proof-of-play'));
+      final statRes = await http.get(
+        Uri.parse('$supabaseUrl/ads_proof_of_play?select=*'),
+        headers: _headers,
+      );
       if (statRes.statusCode == 200) {
-        final newStats = jsonDecode(statRes.body);
+        final newStats = _aggregatePop(jsonDecode(statRes.body) as List<dynamic>);
         final oldImp = analytics['total_impressions'] ?? 0;
         final newImp = newStats['total_impressions'] ?? 0;
 
@@ -154,23 +190,40 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
           : [];
 
       final res = await http.post(
-        Uri.parse('$adsBaseUrl/campaigns'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('$supabaseUrl/ads_campaigns'),
+        headers: _headers,
         body: jsonEncode({
           'advertiser_id': advertiserId,
           'name': name,
-          'flight_start_date': flightStart.toIso8601String(),
-          'flight_end_date': flightEnd.toIso8601String(),
+          'flight_start_date': flightStart.toUtc().toIso8601String(),
+          'flight_end_date': flightEnd.toUtc().toIso8601String(),
           'share_of_voice_percent': sovPercent,
-          'assets': assets,
+          'status': 'ACTIVE',
         }),
       );
 
-      if (res.statusCode == 201) {
-        _triggerNotification('🚀 Campaign "$name" booked and published to screen fleet loops!');
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        final createdList = jsonDecode(res.body) as List<dynamic>;
+        if (createdList.isNotEmpty && creativeName.isNotEmpty) {
+          final campId = createdList.first['id'];
+          await http.post(
+            Uri.parse('$supabaseUrl/ads_creatives'),
+            headers: _headers,
+            body: jsonEncode({
+              'campaign_id': campId,
+              'name': creativeName,
+              'media_type': 'VIDEO_MP4',
+              'file_size_bytes': 15000000,
+              'duration_seconds': 15,
+              'sha256_checksum': 'b7f32095f9c636f8634e0499e28f3a3bf29f79e564940f959f63567b545d9e5f',
+              'storage_url': 'https://cdn.hinopt.com/media/$creativeName',
+            }),
+          );
+        }
+        _triggerNotification('🚀 Campaign "$name" booked in Supabase Cloud!');
         fetchData();
       } else {
-        _showErrorDialog('Failed to book campaign. Status code: ${res.statusCode}');
+        _showErrorDialog('Failed to book campaign (${res.statusCode}): ${res.body}');
       }
     } catch (e) {
       _showErrorDialog(e.toString());
@@ -180,18 +233,18 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
   Future<String?> createAdvertiser(String name, String email, String phone) async {
     try {
       final res = await http.post(
-        Uri.parse('$adsBaseUrl/advertisers'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('$supabaseUrl/ads_advertisers'),
+        headers: _headers,
         body: jsonEncode({
           'name': name,
           'contact_email': email,
           'phone': phone,
         }),
       );
-      if (res.statusCode == 201) {
-        final data = jsonDecode(res.body);
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        final list = jsonDecode(res.body) as List<dynamic>;
         fetchData();
-        return data['id'];
+        return list.isNotEmpty ? list.first['id'].toString() : null;
       }
     } catch (_) {}
     return null;

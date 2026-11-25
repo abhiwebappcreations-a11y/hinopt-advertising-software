@@ -121,9 +121,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             binding.tvActivationCode.text = code
-            val serverIp = sharedPrefs.getString("server_ip", DEFAULT_SERVER_IP) ?: DEFAULT_SERVER_IP
-            binding.tvScreenStatus.text = "Waiting for Super-Admin pairing • Server: $serverIp (Tap to change)"
-            binding.tvScreenStatus.setOnClickListener { showServerIpDialog() }
+            binding.tvScreenStatus.text = "Waiting for Super-Admin pairing • Connected to HINOPT Cloud"
             binding.pairingOverlay.visibility = View.VISIBLE
             binding.playerView.visibility = View.GONE
             Log.i(TAG, "Device unpaired. Displaying activation code: $code")
@@ -149,34 +147,57 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val sharedPrefs = getSharedPreferences("hinopt_device", Context.MODE_PRIVATE)
                     if (sharedPrefs.getString("device_id", null) != null) break
-                    val serverIp = sharedPrefs.getString("server_ip", DEFAULT_SERVER_IP) ?: DEFAULT_SERVER_IP
-                    val url = URL("http://$serverIp:8081/v1/devices/enroll")
-                    val conn = (url.openConnection() as HttpURLConnection).apply {
-                        requestMethod = "POST"
-                        connectTimeout = 3000
-                        readTimeout = 3000
-                        setRequestProperty("Content-Type", "application/json")
-                        doOutput = true
-                    }
-                    val payload = """{"activation_code":"$code","hardware_model":"${Build.MODEL}","serial_number":"${Build.SERIAL}","android_id":"${Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)}"}"""
-                    OutputStreamWriter(conn.outputStream).use { it.write(payload) }
 
-                    if (conn.responseCode == 201) {
-                        val body = conn.inputStream.bufferedReader().use { it.readText() }
-                        val json = org.json.JSONObject(body)
-                        val newDeviceId = json.getString("hinopt_device_id")
-                        sharedPrefs.edit()
-                            .putString("device_id", newDeviceId)
-                            .putString("license_token", json.optString("license_token"))
-                            .apply()
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(this@MainActivity, "Screen Paired Successfully!", Toast.LENGTH_LONG).show()
-                            evaluateDisplayState()
-                        }
-                        break
+                    val queryUrl = URL("$SUPABASE_URL/hinopt_screens?activation_code=eq.$code&enrollment_status=eq.PRE_AUTHORIZED&select=*")
+                    val getConn = (queryUrl.openConnection() as HttpURLConnection).apply {
+                        requestMethod = "GET"
+                        connectTimeout = 5000
+                        readTimeout = 5000
+                        setRequestProperty("apikey", SUPABASE_KEY)
+                        setRequestProperty("Authorization", "Bearer $SUPABASE_KEY")
                     }
-                } catch (_: Exception) {
-                    // Retry every 4 seconds until pre-authorized in Super-Admin
+
+                    if (getConn.responseCode == 200) {
+                        val body = getConn.inputStream.bufferedReader().use { it.readText() }
+                        val arr = org.json.JSONArray(body)
+                        if (arr.length() > 0) {
+                            val screen = arr.getJSONObject(0)
+                            val screenId = screen.getString("id")
+                            val tenantId = screen.getString("tenant_id")
+
+                            // Activate screen directly in Supabase Cloud
+                            val patchUrl = URL("$SUPABASE_URL/hinopt_screens?id=eq.$screenId")
+                            val patchConn = (patchUrl.openConnection() as HttpURLConnection).apply {
+                                requestMethod = "PATCH"
+                                connectTimeout = 5000
+                                readTimeout = 5000
+                                setRequestProperty("apikey", SUPABASE_KEY)
+                                setRequestProperty("Authorization", "Bearer $SUPABASE_KEY")
+                                setRequestProperty("Content-Type", "application/json")
+                                doOutput = true
+                            }
+                            val nowIso = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).apply {
+                                timeZone = java.util.TimeZone.getTimeZone("UTC")
+                            }.format(java.util.Date())
+                            val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "UNKNOWN"
+                            val patchPayload = """{"enrollment_status":"ACTIVE","hardware_model":"${Build.MODEL}","android_id":"$androidId","activation_code":null,"last_heartbeat_at":"$nowIso"}"""
+                            OutputStreamWriter(patchConn.outputStream).use { it.write(patchPayload) }
+
+                            if (patchConn.responseCode in 200..299) {
+                                sharedPrefs.edit()
+                                    .putString("device_id", screenId)
+                                    .putString("tenant_id", tenantId)
+                                    .apply()
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(this@MainActivity, "Screen Paired to HINOPT Cloud!", Toast.LENGTH_LONG).show()
+                                    evaluateDisplayState()
+                                }
+                                break
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Cloud pairing poll retry: ${e.message}")
                 }
                 kotlinx.coroutines.delay(4000L)
             }
@@ -367,5 +388,7 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "MainActivity"
         private const val DEFAULT_OWNER_PIN = "202600"
         private const val DEFAULT_SERVER_IP = "10.149.241.51"
+        private const val SUPABASE_URL = "https://yqmczojypjzsvbngipwd.supabase.co/rest/v1"
+        private const val SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxbWN6b2p5cGp6c3ZibmdpcHdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1MzY4ODcsImV4cCI6MjExMTExMjg4N30._B6VY5pwF7ODJyh5vh1rJ3GprIMkcAvNbxjLn5vt5BQ"
     }
 }

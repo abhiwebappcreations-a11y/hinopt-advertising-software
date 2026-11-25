@@ -42,37 +42,33 @@ class SyncWorker(
         val pending = db.proofOfPlayDao().getPendingUploads()
         if (pending.isEmpty()) return
 
-        Log.i(TAG, "Uploading ${pending.size} proof-of-play impression records to cloud...")
+        Log.i(TAG, "Uploading ${pending.size} proof-of-play impression records to Supabase Cloud...")
         val sharedPrefs = applicationContext.getSharedPreferences("hinopt_device", Context.MODE_PRIVATE)
         val deviceId = sharedPrefs.getString("device_id", null) ?: return
-        val serverIp = sharedPrefs.getString("server_ip", "10.149.241.51") ?: "10.149.241.51"
-        val backendUrl = sharedPrefs.getString("ads_backend_url", "http://$serverIp:8082")
 
-        val url = URL("$backendUrl/v1/displays/$deviceId/playback-reports")
+        val url = URL("$SUPABASE_URL/ads_proof_of_play")
         val conn = url.openConnection() as HttpURLConnection
         conn.requestMethod = "POST"
+        conn.setRequestProperty("apikey", SUPABASE_KEY)
+        conn.setRequestProperty("Authorization", "Bearer $SUPABASE_KEY")
         conn.setRequestProperty("Content-Type", "application/json")
         conn.doOutput = true
 
-        val root = JSONObject().apply {
-            put("screen_id", deviceId)
-            put("batch_timestamp", System.currentTimeMillis().toString())
-            val arr = JSONArray()
-            pending.forEach { p ->
-                arr.put(JSONObject().apply {
-                    put("campaign_id", p.campaign_id)
-                    put("asset_id", p.asset_id)
-                    put("date", p.play_date)
-                    put("completed_impressions", p.completed_impressions)
-                    put("total_seconds_played", p.total_seconds_played)
-                    put("interrupted_impressions", p.interrupted_impressions)
-                })
-            }
-            put("records", arr)
+        val arr = JSONArray()
+        pending.forEach { p ->
+            arr.put(JSONObject().apply {
+                put("screen_id", deviceId)
+                put("campaign_id", p.campaign_id)
+                put("asset_id", p.asset_id)
+                put("play_date", p.play_date)
+                put("completed_impressions", p.completed_impressions)
+                put("total_seconds_played", p.total_seconds_played)
+                put("interrupted_impressions", p.interrupted_impressions)
+            })
         }
 
         conn.outputStream.use { os ->
-            os.write(root.toString().toByteArray())
+            os.write(arr.toString().toByteArray())
         }
 
         if (conn.responseCode in 200..299) {
@@ -86,16 +82,12 @@ class SyncWorker(
     private suspend fun pollManifestDelta() {
         val sharedPrefs = applicationContext.getSharedPreferences("hinopt_device", Context.MODE_PRIVATE)
         val deviceId = sharedPrefs.getString("device_id", null) ?: return
-        val serverIp = sharedPrefs.getString("server_ip", "10.149.241.51") ?: "10.149.241.51"
-        val backendUrl = sharedPrefs.getString("ads_backend_url", "http://$serverIp:8082")
-        val cachedETag = sharedPrefs.getString("cached_etag", null)
 
-        val url = URL("$backendUrl/v1/displays/$deviceId/sync-manifest")
+        val url = URL("$SUPABASE_URL/ads_campaigns?status=eq.ACTIVE&select=*,ads_creatives(*)")
         val conn = url.openConnection() as HttpURLConnection
         conn.requestMethod = "GET"
-        if (cachedETag != null) {
-            conn.setRequestProperty("If-None-Match", cachedETag)
-        }
+        conn.setRequestProperty("apikey", SUPABASE_KEY)
+        conn.setRequestProperty("Authorization", "Bearer $SUPABASE_KEY")
 
         if (conn.responseCode == 304) {
             Log.i(TAG, "Sync manifest unchanged (304 Not Modified). Preserving current offline cache.")
@@ -114,5 +106,7 @@ class SyncWorker(
 
     companion object {
         private const val TAG = "SyncWorker"
+        private const val SUPABASE_URL = "https://yqmczojypjzsvbngipwd.supabase.co/rest/v1"
+        private const val SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlxbWN6b2p5cGp6c3ZibmdpcHdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1MzY4ODcsImV4cCI6MjExMTExMjg4N30._B6VY5pwF7ODJyh5vh1rJ3GprIMkcAvNbxjLn5vt5BQ"
     }
 }

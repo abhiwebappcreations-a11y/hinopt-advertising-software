@@ -452,6 +452,7 @@ class MainActivity : AppCompatActivity() {
                                 playbackEngine = PlaybackEngine(this@MainActivity, binding.playerView, lifecycleScope)
                             }
                             playbackEngine?.submitPlaylist(items)
+                            Toast.makeText(this@MainActivity, "Playing ${items.size} ad(s)", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }

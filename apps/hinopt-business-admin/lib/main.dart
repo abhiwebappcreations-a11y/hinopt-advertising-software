@@ -608,7 +608,7 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
           ],
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.qr_code_scanner), onPressed: _showManualScanDialog, tooltip: 'Scan / Connect Screen QR'),
+          IconButton(icon: const Icon(Icons.qr_code_scanner), onPressed: _showManualScanDialog, tooltip: 'Connect Screen (QR / Code)'),
           IconButton(icon: const Icon(Icons.refresh), onPressed: fetchData, tooltip: 'Refresh Data'),
           IconButton(
             icon: const Icon(Icons.logout),
@@ -722,7 +722,7 @@ class _BusinessHomeScreenState extends State<BusinessHomeScreen> {
                 TextButton.icon(
                   onPressed: _showManualScanDialog,
                   icon: const Icon(Icons.qr_code_scanner, size: 16),
-                  label: const Text('Scan Screen QR'),
+                  label: const Text('Connect Screen (QR / Code)'),
                 ),
               ],
             ),

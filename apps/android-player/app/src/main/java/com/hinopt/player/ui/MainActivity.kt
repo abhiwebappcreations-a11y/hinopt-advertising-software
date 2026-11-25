@@ -1,6 +1,7 @@
 package com.hinopt.player.ui
 
 import android.app.ActivityManager
+import android.app.admin.DevicePolicyManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -125,8 +126,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         try {
+            val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
             val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-            if (am.lockTaskModeState == ActivityManager.LOCK_TASK_MODE_NONE) {
+            if (dpm.isDeviceOwnerApp(packageName) && am.lockTaskModeState == ActivityManager.LOCK_TASK_MODE_NONE) {
                 startLockTask()
             }
         } catch (e: Exception) {

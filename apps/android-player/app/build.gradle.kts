@@ -11,7 +11,7 @@ android {
     defaultConfig {
         applicationId = "com.hinopt.player"
         minSdk = 29 // Android 10 (Target TPC 151TCT)
-        targetSdk = 29
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
 

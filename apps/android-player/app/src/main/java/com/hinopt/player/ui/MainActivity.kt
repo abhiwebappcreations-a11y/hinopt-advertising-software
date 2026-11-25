@@ -37,6 +37,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
@@ -364,7 +366,8 @@ class MainActivity : AppCompatActivity() {
         pollingJob?.cancel()
         pollingJob = lifecycleScope.launch(Dispatchers.IO) {
             val db = AppDatabase.getInstance(this@MainActivity)
-            var lastCount = -1
+            val mediaDir = File(filesDir, "hinopt_ads").apply { mkdirs() }
+            var lastSignature = ""
 
             while (true) {
                 try {
@@ -386,23 +389,47 @@ class MainActivity : AppCompatActivity() {
                             val creatives = camp.optJSONArray("ads_creatives") ?: JSONArray()
                             for (j in 0 until creatives.length()) {
                                 val cr = creatives.getJSONObject(j)
+                                val assetId = cr.getString("id")
+                                val remoteUrl = cr.getString("storage_url")
+                                val localFile = File(mediaDir, "$assetId.mp4")
+
+                                // Download MP4 locally if not yet cached
+                                if (!localFile.exists() && remoteUrl.startsWith("http")) {
+                                    try {
+                                        val dlConn = (URL(remoteUrl).openConnection() as HttpURLConnection).apply {
+                                            connectTimeout = 10000
+                                            readTimeout = 20000
+                                        }
+                                        if (dlConn.responseCode == 200) {
+                                            dlConn.inputStream.use { input ->
+                                                FileOutputStream(localFile).use { output ->
+                                                    input.copyTo(output)
+                                                }
+                                            }
+                                        }
+                                    } catch (dlErr: Exception) {
+                                        Log.w(TAG, "Video cache download warning: ${dlErr.message}")
+                                    }
+                                }
+
                                 syncedItems.add(
                                     PlaylistItemEntity(
-                                        asset_id = cr.getString("id"),
+                                        asset_id = assetId,
                                         campaign_id = campId,
-                                        local_path = "",
-                                        remote_url = cr.getString("storage_url"),
+                                        local_path = if (localFile.exists()) localFile.absolutePath else "",
+                                        remote_url = remoteUrl,
                                         sha256 = cr.optString("sha256_checksum", ""),
                                         duration_seconds = cr.optInt("duration_seconds", 15),
                                         media_type = cr.optString("media_type", "VIDEO_MP4"),
                                         audio_mode = cr.optString("audio_mode", "MUTED"),
                                         sequence_order = seq++,
-                                        is_downloaded = false
+                                        is_downloaded = true
                                     )
                                 )
                             }
                         }
                         if (syncedItems.isNotEmpty()) {
+                            db.playlistItemDao().clearAll()
                             db.playlistItemDao().insertAll(syncedItems)
                         }
                     }
@@ -411,8 +438,9 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 val items = db.playlistItemDao().getPlayableItems()
-                if (items.size != lastCount) {
-                    lastCount = items.size
+                val newSig = items.joinToString("|") { "${it.asset_id}:${it.local_path}" }
+                if (newSig != lastSignature) {
+                    lastSignature = newSig
                     withContext(Dispatchers.Main) {
                         if (items.isEmpty()) {
                             binding.emptyAdsOverlay.visibility = View.VISIBLE
